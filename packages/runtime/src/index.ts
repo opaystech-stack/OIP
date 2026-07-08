@@ -13,9 +13,9 @@ import type { AutomationAdapter, McpAdapter, VectorAdapter } from "../../adapter
 import { InMemoryAuditLog } from "../../audit-log/src/index.js";
 import { ContextBuilder, type BuiltContext } from "../../context-builder/src/index.js";
 import { InMemoryEventBus } from "../../event-bus/src/index.js";
-import { InMemoryMemoryRuntime, MemoryRuntimeStoreAdapter } from "../../memory-runtime/src/index.js";
+import { InMemoryMemoryRuntime, LegacyMemoryRuntimeAdapter, MemoryRuntimeStoreAdapter } from "../../memory-runtime/src/index.js";
 import { InMemoryEventRuntime, EventRuntimePublisherAdapter } from "../../event-runtime/src/index.js";
-import { InMemoryContextRuntime } from "../../context-runtime/src/index.js";
+import { InMemoryContextRuntime, ContextRuntimeBuilderAdapter } from "../../context-runtime/src/index.js";
 import { KnowledgeEngine } from "../../knowledge-engine/src/index.js";
 import type { LlmAdapter } from "../../llm-adapter/src/index.js";
 import { InMemoryStore } from "../../memory/src/index.js";
@@ -47,7 +47,10 @@ export class OipRuntime {
 
   constructor(options: OipRuntimeOptions = {}) {
     this.knowledge = new KnowledgeEngine(options.vector);
-    this.memory = options.memory ?? new MemoryRuntimeStoreAdapter(new InMemoryMemoryRuntime());
+    const memoryRuntime = options.memory
+      ? new LegacyMemoryRuntimeAdapter(options.memory)
+      : new InMemoryMemoryRuntime();
+    this.memory = options.memory ?? new MemoryRuntimeStoreAdapter(memoryRuntime);
     this.automation = options.automation ?? new InMemoryAutomationAdapter();
     this.mcp = options.mcp ?? new InMemoryMcpAdapter();
     this.events = options.events ?? new EventRuntimePublisherAdapter(new InMemoryEventRuntime());
@@ -55,7 +58,12 @@ export class OipRuntime {
     this.documents = new DocumentService(this.documentKnowledge, 800, options.documentParser, options.ocr);
     this.actions = new ActionEngine(this.capabilities, this.tools, new Validator(), this.events, this.audit);
     this.workflowEngine = new WorkflowEngine(this.workflows, this.actions);
-    this.contextBuilder = new ContextBuilder(this.knowledge, this.memory);
+    this.contextBuilder = new ContextRuntimeBuilderAdapter(
+      new InMemoryContextRuntime(
+        memoryRuntime,
+        undefined,
+      ),
+    );
     this.knowledge.register(this.documentKnowledge);
   }
 

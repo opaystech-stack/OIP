@@ -6,10 +6,10 @@ export interface MemoryEntry {
   readonly id: string;
   readonly type: MemoryType;
   readonly workspaceId: string;
-  readonly userId?: string;
+  readonly userId: string;
   readonly content: string;
-  readonly metadata?: JsonObject;
   readonly occurredAt: string;
+  readonly metadata?: JsonObject;
 }
 
 export interface MemoryQuery {

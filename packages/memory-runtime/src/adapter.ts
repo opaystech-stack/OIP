@@ -1,6 +1,54 @@
 import type { MemoryStore, ConversationMemoryEntry } from "../../memory/src/index.js";
 import type { RuntimeContext } from "../../core/src/index.js";
-import type { MemoryRuntime } from "../../core/src/contracts/index.js";
+import type { ExecutionContext, MemoryEntry, MemoryQuery, MemoryResult, MemoryRuntime } from "../../core/src/contracts/index.js";
+
+export class LegacyMemoryRuntimeAdapter implements MemoryRuntime {
+  constructor(private readonly store: MemoryStore) {}
+
+  async append(entry: MemoryEntry): Promise<void> {
+    await this.store.append({
+      requestId: entry.id,
+      organizationId: entry.workspaceId,
+      userId: entry.userId,
+      input: entry.content ?? "",
+      response: "",
+      occurredAt: entry.occurredAt,
+      metadata: entry.metadata ?? {},
+    });
+  }
+
+  async recall(query: MemoryQuery): Promise<readonly MemoryResult[]> {
+    const context: RuntimeContext = {
+      requestId: "recall",
+      channel: "api",
+      user: {
+        userId: query.userId ?? "unknown",
+        organizationId: query.workspaceId,
+        roles: [],
+        locale: "fr",
+      },
+    };
+
+    const entries = await this.store.recent(context, query.limit ?? 10);
+
+    return entries.map((entry) => ({
+      entry: {
+        id: entry.requestId,
+        type: "conversation",
+        workspaceId: entry.organizationId,
+        userId: entry.userId,
+        content: entry.input,
+        occurredAt: entry.occurredAt,
+        ...(entry.metadata !== undefined ? { metadata: entry.metadata } : {}),
+      },
+      score: 1,
+    }));
+  }
+
+  async remember(_input: string, _output: string, _context: ExecutionContext): Promise<void> {
+    // Not implemented for legacy stores.
+  }
+}
 
 export class MemoryRuntimeStoreAdapter implements MemoryStore {
   constructor(private readonly runtime: MemoryRuntime) {}
@@ -39,3 +87,5 @@ export class MemoryRuntimeStoreAdapter implements MemoryStore {
     });
   }
 }
+
+export type { MemoryRuntime } from "../../core/src/contracts/index.js";

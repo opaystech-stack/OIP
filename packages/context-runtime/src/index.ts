@@ -46,3 +46,4 @@ export class InMemoryContextRuntime implements ContextRuntime {
 }
 
 export type { ContextRuntime, ExecutionContext } from "../../core/src/contracts/index.js";
+export { ContextRuntimeBuilderAdapter } from "./adapter.js";

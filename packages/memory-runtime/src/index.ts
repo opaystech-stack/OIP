@@ -43,4 +43,4 @@ export class InMemoryMemoryRuntime implements MemoryRuntime {
 }
 
 export type { MemoryEntry, MemoryQuery, MemoryResult, MemoryRuntime } from "../../core/src/contracts/index.js";
-export { MemoryRuntimeStoreAdapter } from "./adapter.js";
+export { LegacyMemoryRuntimeAdapter, MemoryRuntimeStoreAdapter } from "./adapter.js";
