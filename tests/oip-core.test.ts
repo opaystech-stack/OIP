@@ -19,6 +19,7 @@ import { ContextBuilder } from "../packages/context-builder/src/index.js";
 import { InMemoryEventBus } from "../packages/event-bus/src/index.js";
 import { JsonFileAuditLog, JsonFileEventBus, JsonFileMemoryStore } from "../packages/file-store/src/index.js";
 import { MockOcrAdapter, PlainTextDocumentAdapter } from "../packages/document-adapters/src/index.js";
+import { InMemoryAutomationAdapter, InMemoryMcpAdapter } from "../packages/integration-adapters/src/index.js";
 import { InMemoryKnowledgeSource, KnowledgeEngine } from "../packages/knowledge-engine/src/index.js";
 import { MockLlmAdapter, OpenAiCompatibleLlmAdapter } from "../packages/llm-adapter/src/index.js";
 import { LlmPlanner } from "../packages/planner/src/index.js";
@@ -624,6 +625,28 @@ const tests: readonly TestCase[] = [
 
       assertEqual(titles.includes("Guide inventaire #1"), true);
       assertEqual(titles.includes("Guide ciment"), true);
+    },
+  },
+  {
+    name: "Runtime exposes automation and MCP adapters through stable interfaces",
+    run: async () => {
+      const automation = new InMemoryAutomationAdapter();
+      const mcp = new InMemoryMcpAdapter();
+      mcp.register("crm", "lookupCustomer", (args) => ({
+        customerId: "customer-001",
+        name: typeof args.name === "string" ? args.name : "unknown",
+      }));
+      const runtime = new OipRuntime({ automation, mcp }).use(commercePluginModule);
+
+      await runtime.automation.trigger("notify-stock-update", {
+        itemName: "ciment",
+      });
+      const result = await runtime.mcp.callTool("crm", "lookupCustomer", {
+        name: "Patrick",
+      });
+
+      assertEqual(automation.list()[0]?.workflowId, "notify-stock-update");
+      assertEqual(result.customerId, "customer-001");
     },
   },
 ];

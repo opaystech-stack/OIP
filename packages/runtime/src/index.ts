@@ -9,7 +9,7 @@ import {
   type RuntimeContext,
 } from "../../core/src/index.js";
 import { InMemoryObservabilityAdapter } from "../../adapters/src/index.js";
-import type { VectorAdapter } from "../../adapters/src/index.js";
+import type { AutomationAdapter, McpAdapter, VectorAdapter } from "../../adapters/src/index.js";
 import { InMemoryAuditLog } from "../../audit-log/src/index.js";
 import { ContextBuilder, type BuiltContext } from "../../context-builder/src/index.js";
 import { InMemoryEventBus } from "../../event-bus/src/index.js";
@@ -23,6 +23,7 @@ import type { DocumentAdapter, OcrAdapter } from "../../adapters/src/index.js";
 import { LlmPlanner } from "../../planner/src/index.js";
 import { installPluginModule, type OipPluginModule } from "../../plugin-sdk/src/index.js";
 import { WorkflowEngine, WorkflowRegistry } from "../../workflow-engine/src/index.js";
+import { InMemoryAutomationAdapter, InMemoryMcpAdapter } from "../../integration-adapters/src/index.js";
 
 export class OipRuntime {
   readonly capabilities = new CapabilityRegistry();
@@ -33,6 +34,8 @@ export class OipRuntime {
   readonly documents: DocumentService;
   readonly memory: MemoryStore;
   readonly observability = new InMemoryObservabilityAdapter();
+  readonly automation: AutomationAdapter;
+  readonly mcp: McpAdapter;
   readonly events: EventPublisher & { list?: () => unknown };
   readonly audit: AuditLogger & { list?: () => unknown };
   readonly actions: ActionEngine;
@@ -42,6 +45,8 @@ export class OipRuntime {
   constructor(options: OipRuntimeOptions = {}) {
     this.knowledge = new KnowledgeEngine(options.vector);
     this.memory = options.memory ?? new InMemoryStore();
+    this.automation = options.automation ?? new InMemoryAutomationAdapter();
+    this.mcp = options.mcp ?? new InMemoryMcpAdapter();
     this.events = options.events ?? new InMemoryEventBus();
     this.audit = options.audit ?? new InMemoryAuditLog();
     this.documents = new DocumentService(this.documentKnowledge, 800, options.documentParser, options.ocr);
@@ -81,4 +86,6 @@ export interface OipRuntimeOptions {
   readonly vector?: VectorAdapter;
   readonly documentParser?: DocumentAdapter;
   readonly ocr?: OcrAdapter;
+  readonly automation?: AutomationAdapter;
+  readonly mcp?: McpAdapter;
 }
