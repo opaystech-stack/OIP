@@ -43,3 +43,4 @@ function matchesFilter(event: DomainEvent, filter: EventFilter): boolean {
 }
 
 export type { DomainEvent, EventFilter, EventHandler, EventRuntime, EventSubscription } from "../../core/src/contracts/index.js";
+export { EventRuntimePublisherAdapter } from "./adapter.js";
