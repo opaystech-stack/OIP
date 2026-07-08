@@ -1,4 +1,7 @@
 import type { JsonObject } from "./common.js";
+import type { PlannedAction } from "../types.js";
+
+export type { PlannedAction };
 
 export interface ExecutionStep {
   readonly stepId: string;
@@ -27,10 +30,3 @@ export type DecisionResult =
   | { readonly type: "plan"; readonly plan: ExecutionPlan }
   | { readonly type: "clarify"; readonly question: string; readonly candidates: readonly CapabilityCandidate[] }
   | { readonly type: "reject"; readonly reason: string };
-
-export interface PlannedAction {
-  readonly capabilityId: string;
-  readonly arguments: JsonObject;
-  readonly confidence: number;
-  readonly reason: string;
-}

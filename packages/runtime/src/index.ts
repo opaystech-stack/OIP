@@ -98,3 +98,40 @@ export interface OipRuntimeOptions {
   readonly automation?: AutomationAdapter;
   readonly mcp?: McpAdapter;
 }
+
+// Re-export public core helpers and types for the single-package developer experience.
+export {
+  defineCapability,
+  defineTool,
+  success,
+  rejected,
+  ActionEngine,
+  CapabilityRegistry,
+  ToolRegistry,
+  Validator,
+  registerPlugin,
+  type ActionResult,
+  type CapabilityDefinition,
+  type CapabilityParameter,
+  type ConfirmationLevel,
+  type DomainEvent,
+  type JsonObject,
+  type JsonValue,
+  type OipPlugin,
+  type PlannedAction,
+  type RuntimeContext,
+  type ToolHandler,
+  type UserContext,
+  type ValidationIssue,
+  type ValidationResult,
+} from "../../core/src/index.js";
+
+export {
+  definePlugin,
+  definePluginModule,
+  installPluginModule,
+  type OipPluginModule,
+} from "../../plugin-sdk/src/index.js";
+
+export { createRuntimeFromEnv } from "../../runtime/src/factory.js";
+export { MockLlmAdapter, OpenAiCompatibleLlmAdapter } from "../../llm-adapter/src/index.js";

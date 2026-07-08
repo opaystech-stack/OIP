@@ -1,0 +1,17 @@
+{
+  "name": "@opaystech/oip-validation-suite",
+  "version": "0.1.0-alpha",
+  "description": "Validation scenarios for the OIP business engine",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build \u0026\u0026 node dist/src/index.js"
+  },
+  "dependencies": {
+    "@opaystech/oip": "file:.."
+  },
+  "devDependencies": {
+    "typescript": "^5.5.3"
+  }
+}

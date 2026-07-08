@@ -42,6 +42,7 @@ export interface PlannedAction {
   readonly arguments: JsonObject;
   readonly confidence: number;
   readonly reason: string;
+  readonly [key: string]: JsonValue;
 }
 
 export interface ValidationIssue {

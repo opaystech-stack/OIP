@@ -9,14 +9,17 @@ Le format est base sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/) 
 ### Added
 
 - Consumer Test Project (`consumer-test/`) to validate the external developer experience.
-- `defineTool` helper in `@opaystech/oip/core` for ergonomic tool authoring.
-- `success` and `rejected` helpers in `@opaystech/oip/core` for clear action results.
+- Validation Suite (`validation-suite/`) covering Commerce, Business AI, Forex and reasoning scenarios.
+- `defineTool`, `success`, `rejected` helpers in `@opaystech/oip/core` for ergonomic tool authoring.
 - `definePlugin` helper in `@opaystech/oip/plugin-sdk`.
-- Documentation updates in `docs/oip-sdk-developer.md` reflecting the new helpers.
+- Re-export of core helpers, plugin SDK and `MockLlmAdapter` from the main `@opaystech/oip` entry point.
+- `PlannedAction` index signature to make it compatible with `JsonObject`.
+- Validation report (`docs/oip-validation-report.md`).
 
 ### Changed
 
-- Public API entry points clarified: `@opaystech/oip`, `@opaystech/oip/core`, `@opaystech/oip/plugin-sdk`.
+- Public API entry points clarified: `@opaystech/oip` now covers the majority of consumer needs.
+- `PlannedAction` is now exported from `core/src/types.ts` and re-exported by `core/src/contracts/plan.ts`.
 
 ### Changed
 
