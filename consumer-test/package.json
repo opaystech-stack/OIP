@@ -1,0 +1,17 @@
+{
+  "name": "@opaystech/oip-consumer-test",
+  "version": "0.1.0-alpha",
+  "description": "Consumer Test Project for OIP — validates the public developer experience",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build \u0026\u0026 node dist/src/index.js"
+  },
+  "dependencies": {
+    "@opaystech/oip": "file:.."
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1"
+  }
+}

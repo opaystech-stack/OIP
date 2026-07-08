@@ -22,7 +22,18 @@ Les seuls chemins d’import publics sont :
 
 ```ts
 import { OipRuntime, createRuntimeFromEnv } from "@opaystech/oip";
-import { defineCapability, CapabilityRegistry, ToolRegistry, ActionEngine, Validator, registerPlugin } from "@opaystech/oip/core";
+import {
+  ActionEngine,
+  CapabilityRegistry,
+  ToolRegistry,
+  Validator,
+  defineCapability,
+  definePlugin,
+  defineTool,
+  registerPlugin,
+  success,
+  rejected,
+} from "@opaystech/oip/core";
 import { definePluginModule, installPluginModule } from "@opaystech/oip/plugin-sdk";
 import { loadLlmConfig, createLlmAdapter } from "@opaystech/oip/config";
 import { MockLlmAdapter, OpenAiCompatibleLlmAdapter } from "@opaystech/oip/llm-adapter";
@@ -78,21 +89,33 @@ const addStockCapability = defineCapability({
 
 ## 3. Implementer un Tool
 
+La forme la plus simple utilise `defineTool` et `success` :
+
+```ts
+import { defineTool, success } from "@opaystech/oip/core";
+
+const addStockTool = defineTool(async (args, _context) => {
+  const itemName = String(args.itemName);
+  const quantity = Number(args.quantity);
+
+  return success("commerce.inventory.add", { itemName, quantityAdded: quantity }, [
+    { type: "InventoryUpdated", occurredAt: new Date().toISOString(), payload: { itemName, quantity } },
+  ]);
+});
+```
+
+La forme classique avec une classe reste disponible :
+
 ```ts
 import type { ToolHandler, ActionResult, RuntimeContext, JsonObject } from "@opaystech/oip/core";
 
 class AddInventoryTool implements ToolHandler {
   async execute(args: JsonObject, _context: RuntimeContext): Promise<ActionResult> {
-    // Appeler le service metier ici, jamais depuis le LLM.
     return {
       capabilityId: "commerce.inventory.add",
       status: "completed",
       data: { itemName: String(args.itemName), quantityAdded: Number(args.quantity) },
-      events: [{
-        type: "InventoryUpdated",
-        occurredAt: new Date().toISOString(),
-        payload: args,
-      }],
+      events: [{ type: "InventoryUpdated", occurredAt: new Date().toISOString(), payload: args }],
     };
   }
 }
@@ -100,39 +123,31 @@ class AddInventoryTool implements ToolHandler {
 
 ## 4. Enregistrer un plugin
 
+Forme recommandee avec le SDK :
+
+```ts
+import { definePlugin, definePluginModule } from "@opaystech/oip/plugin-sdk";
+
+const plugin = definePlugin({
+  id: "commerce",
+  name: "Opays Commerce",
+  capabilities: [addStockCapability],
+  tools: new Map([["commerce.inventory.add", addStockTool]]),
+});
+
+const module = definePluginModule({ plugin });
+const runtime = new OipRuntime().use(module);
+```
+
+Forme manuelle avec le core :
+
 ```ts
 import { registerPlugin } from "@opaystech/oip/core";
 
 const capabilities = new CapabilityRegistry();
 const tools = new ToolRegistry();
 
-registerPlugin(
-  {
-    id: "commerce",
-    name: "Opays Commerce",
-    capabilities: [addStockCapability],
-    tools: new Map([["commerce.inventory.add", new AddInventoryTool()]]),
-  },
-  capabilities,
-  tools,
-);
-```
-
-Avec le Plugin SDK (recommande) :
-
-```ts
-import { definePluginModule, installPluginModule } from "@opaystech/oip/plugin-sdk";
-
-const commercePluginModule = definePluginModule({
-  plugin: {
-    id: "commerce",
-    name: "Opays Commerce",
-    capabilities: [addStockCapability],
-    tools: new Map([["commerce.inventory.add", new AddInventoryTool()]]),
-  },
-});
-
-const runtime = new OipRuntime().use(commercePluginModule);
+registerPlugin(plugin, capabilities, tools);
 ```
 
 ## 5. Planifier et executer une action
@@ -210,8 +225,8 @@ const runtime = new OipRuntime({
 
 ```ts
 import { OipRuntime } from "@opaystech/oip";
-import { defineCapability } from "@opaystech/oip/core";
-import { definePluginModule } from "@opaystech/oip/plugin-sdk";
+import { defineCapability, defineTool, success } from "@opaystech/oip/core";
+import { definePlugin, definePluginModule } from "@opaystech/oip/plugin-sdk";
 
 const addStock = defineCapability({
   id: "commerce.inventory.add",
@@ -223,28 +238,20 @@ const addStock = defineCapability({
   requiredRoles: ["inventory.manager"],
 });
 
-const plugin = definePluginModule({
-  plugin: {
-    id: "commerce",
-    name: "Commerce Demo",
-    capabilities: [addStock],
-    tools: new Map([
-      [
-        "commerce.inventory.add",
-        {
-          execute: async (args) => ({
-            capabilityId: "commerce.inventory.add",
-            status: "completed" as const,
-            data: args,
-            events: [],
-          }),
-        },
-      ],
-    ]),
-  },
+const addStockTool = defineTool(async (args) =>
+  success("commerce.inventory.add", args, [
+    { type: "InventoryUpdated", occurredAt: new Date().toISOString(), payload: args as Record<string, unknown> },
+  ]),
+);
+
+const plugin = definePlugin({
+  id: "commerce",
+  name: "Commerce Demo",
+  capabilities: [addStock],
+  tools: new Map([["commerce.inventory.add", addStockTool]]),
 });
 
-const runtime = new OipRuntime().use(plugin);
+const runtime = new OipRuntime().use(definePluginModule({ plugin }));
 
 const result = await runtime.execute(
   {

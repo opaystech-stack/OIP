@@ -8,11 +8,15 @@ Le format est base sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/) 
 
 ### Added
 
-- Documentation produit : README, CONTRIBUTING, CHANGELOG, LICENSE placeholder, CODE_OF_CONDUCT.
-- Strategie de versionnement (`docs/oip-versioning.md`).
-- Strategie de distribution (`docs/oip-distribution.md`).
-- SDK developpeur minimal (`docs/oip-sdk-developer.md`).
-- Plan d’integration progressive (`docs/oip-integration-plan.md`).
+- Consumer Test Project (`consumer-test/`) to validate the external developer experience.
+- `defineTool` helper in `@opaystech/oip/core` for ergonomic tool authoring.
+- `success` and `rejected` helpers in `@opaystech/oip/core` for clear action results.
+- `definePlugin` helper in `@opaystech/oip/plugin-sdk`.
+- Documentation updates in `docs/oip-sdk-developer.md` reflecting the new helpers.
+
+### Changed
+
+- Public API entry points clarified: `@opaystech/oip`, `@opaystech/oip/core`, `@opaystech/oip/plugin-sdk`.
 
 ### Changed
 

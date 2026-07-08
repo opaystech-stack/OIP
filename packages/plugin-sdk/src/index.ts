@@ -18,6 +18,10 @@ export interface PluginInstallTarget {
   readonly workflows?: WorkflowRegistry;
 }
 
+export function definePlugin(plugin: OipPlugin): OipPlugin {
+  return plugin;
+}
+
 export function definePluginModule(module: OipPluginModule): OipPluginModule {
   return module;
 }

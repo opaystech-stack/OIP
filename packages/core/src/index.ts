@@ -1,6 +1,8 @@
 export * from "./action-engine.js";
+export * from "./action-result.js";
 export * from "./planner.js";
 export * from "./registry.js";
+export * from "./tool.js";
 export * from "./types.js";
 export * from "./validator.js";
 export { defineCapability } from "./contracts/capability.js";
