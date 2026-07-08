@@ -14,6 +14,7 @@ export interface InboundRequest {
   readonly rawPayload: JsonValue;
   readonly text?: string;
   readonly attachments?: readonly Attachment[];
+  readonly headers?: { readonly [key: string]: string };
   readonly metadata?: JsonObject;
 }
 
