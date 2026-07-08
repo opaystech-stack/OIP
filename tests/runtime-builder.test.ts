@@ -1,6 +1,6 @@
 import { OipRuntime } from "../packages/runtime/src/index.js";
 import { OipRuntimeBuilder } from "../packages/runtime/src/builder.js";
-import { commercePluginModule } from "../plugins/commerce/src/index.js";
+import { commercePluginModule } from "../examples/plugins/commerce/src/index.js";
 
 function assertEqual(actual: unknown, expected: unknown): void {
   if (actual !== expected) {

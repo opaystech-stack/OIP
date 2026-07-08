@@ -7,7 +7,7 @@ import {
   Validator,
   type RuntimeContext,
 } from "../packages/core/src/index.js";
-import { commercePlugin, getInventorySnapshot } from "../plugins/commerce/src/index.js";
+import { commercePlugin, getInventorySnapshot } from "./plugins/commerce/src/index.js";
 
 const capabilities = new CapabilityRegistry();
 const tools = new ToolRegistry();

@@ -27,9 +27,9 @@ import { installPluginModule } from "../packages/plugin-sdk/src/index.js";
 import { OipRuntime } from "../packages/runtime/src/index.js";
 import { InMemoryVectorAdapter } from "../packages/vector-store/src/index.js";
 import { WorkflowEngine, WorkflowRegistry } from "../packages/workflow-engine/src/index.js";
-import { commercePluginModule } from "../plugins/commerce/src/index.js";
-import { getEmployeesSnapshot, hrPluginModule } from "../plugins/hr/src/index.js";
-import { startApiServer } from "../apps/api/src/server.js";
+import { commercePluginModule } from "../examples/plugins/commerce/src/index.js";
+import { getEmployeesSnapshot, hrPluginModule } from "../examples/plugins/hr/src/index.js";
+import { startApiServer } from "../examples/api-demo/src/server.js";
 
 type TestCase = {
   readonly name: string;

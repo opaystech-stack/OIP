@@ -1,124 +1,96 @@
-# Opays Intelligence Platform
+# Opays Intelligence Platform (OIP)
 
-Opays Intelligence Platform (OIP) est le moteur d'intelligence conversationnelle centralise d'Opays. Son role n'est pas d'ajouter un chatbot aux applications existantes, mais de faire du langage naturel l'interface principale des produits Opays.
+OIP est le moteur d’intelligence conversationnelle produit d’Opays.  
+Il transforme le langage naturel en actions métier validées, traçables et orchestrees, sans jamais donner au LLM un droit d’execution direct.
 
-Le principe fondateur est simple: les applications metier declarent leurs capacites, leurs workflows, leurs permissions et leurs sources de connaissance. OIP comprend la demande de l'utilisateur, construit le contexte, planifie l'action, valide les risques, orchestre le workflow, puis execute via les services metier autorises.
+> **Statut** : `v0.1.0-alpha` — socle technique stabilise apres le PI-1.  
+> OIP est desormais developpe comme un produit logiciel autonome, consomme par les applications Opays via un package versionne.
 
-## Vision
+## Vision produit
 
-Construire une plateforme d'intelligence reutilisable pour plusieurs secteurs:
+OIP n’est pas un chatbot.  
+C’est un **runtime d’intention-action** : les applications declarent leurs capacites, leurs workflows, leurs permissions et leurs sources de connaissance.  
+OIP comprend la demande, construit le contexte, planifie, valide, orchestre, puis execute via les services metiers autorises.
 
-- Commerce
-- RH
-- Immobilier
-- Cadastre
-- Juridique
-- Logistique
-- ONG
-- Sante
-- Education
-- Futurs produits Opays
+Les applications Opays (Commerce, RH, Sante, Immobilier, Forex, Gestion IA, ONG, etc.) deviennent des **consommateurs** d’OIP, pas des proprietaires de sa logique.
 
-OIP doit fonctionner depuis plusieurs interfaces sans changer son architecture:
+## Principe critique
 
-- Web
-- Mobile Expo
-- WhatsApp
-- Telegram
-- API
-- Voix
-- Agents autonomes
+> **Le LLM ne possede aucun droit d’execution directe.**
 
-## Principe Critique
+Il ne fait jamais de SQL, HTTP direct, DOM direct ou appel service metier direct.  
+Il choisit uniquement une `capability` declaree. L’Action Engine execute apres validation.
 
-Le LLM ne possede aucun droit d'execution directe.
+## Démarrage
 
-Il ne fait jamais de SQL, HTTP direct, DOM direct ou appel service metier direct. Il choisit uniquement une capacite declaree. L'Action Engine execute apres validation.
+```bash
+npm ci
+npm run check
+npm run test:all
+npm run demo
+```
+
+Voir `docs/oip-sdk-developer.md` pour un exemple d’integration minimal.
+
+## Structure du dépôt
+
+```text
+.
+├── packages/           # Code source publiable d’OIP
+│   ├── core/           # Contrats, ActionEngine, Validator, registries, planner
+│   ├── runtime/        # Facade OipRuntime et builders
+│   ├── plugin-sdk/     # SDK pour ecrire des plugins OIP
+│   ├── config/         # Configuration LLM et runtime depuis l’environnement
+│   ├── llm-adapter/    # Adaptateurs LLM (mock, OpenAI-compatible)
+│   ├── adapters/       # Contrats et implementations memoire des adaptateurs externes
+│   ├── chat-service/   # Service de chat haut niveau
+│   ├── workflow-engine/# Orchestration de workflows
+│   ├── knowledge-engine/# Moteur de connaissance et ingestion documentaire
+│   ├── memory/         # Stockage conversationnel
+│   └── ...             # Autres runtimes et services
+├── examples/           # Démonstrations et consommateurs de reference
+│   ├── commerce-demo.ts
+│   ├── api-demo/
+│   └── plugins/
+│       ├── commerce/
+│       └── hr/
+├── tests/              # Suite de validation executable
+├── docs/               # Architecture, ADR, roadmap, SDK
+└── .github/            # CI, templates, workflows
+```
+
+Seuls les exports documentes constituent l’API publique.
+
+## API publique
+
+L’API stable est exportee par :
+
+- `@opaystech/oip` → `packages/runtime/src/index.ts` (`OipRuntime`, `OipRuntimeOptions`, `createRuntimeFromEnv`)
+- `@opaystech/oip/core` → `packages/core/src/index.ts` (contrats, moteurs, helpers)
+- `@opaystech/oip/plugin-sdk` → `packages/plugin-sdk/src/index.ts` (`definePluginModule`, `installPluginModule`)
+
+Tout autre import est considere comme interne et peut changer sans notice.
 
 ## Documentation
 
 - [Vision et architecture](docs/oip-vision-architecture.md)
-- [Roadmap MVP](docs/oip-mvp-roadmap.md)
-- [Ecosysteme open source et adapters](docs/oip-open-source-adapters.md)
-- [Structure cible du repository](docs/oip-repository-structure.md)
-- [Etat d'implementation](docs/oip-implementation-status.md)
+- [Contrat de Capability](docs/oip-capability-contract.md)
+- [SDK developpeur](docs/oip-sdk-developer.md)
+- [Strategie de versionnement](docs/oip-versioning.md)
+- [Strategie de distribution](docs/oip-distribution.md)
+- [Plan d’integration des applications](docs/oip-integration-plan.md)
+- [Etat d’implementation](docs/oip-implementation-status.md)
+- [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md)
 
-## Demarrage Technique
+## Gouvernance
 
-Le socle actuel est un monorepo TypeScript minimal sans dependance externe.
+- Toute nouvelle abstraction, Runtime ou concept majeur necessite un ADR et un besoin concret.
+- Chaque commit publique doit compiler et passer `npm run test:all`.
+- Les tests sont traites comme de la documentation executable.
 
-Commandes:
+## Licence
 
-```bash
-npm run check
-npm test
-npm run demo
-npm run dev:api
-```
+Emplacement reserve. Voir [LICENSE](LICENSE).
 
-La demo prouve le premier flux OIP:
-
-```text
-langage naturel -> Planner -> Capability -> Validator -> Action Engine -> Tool Commerce -> Event Bus
-```
-
-Le socle contient aussi les premiers contrats pour:
-
-- LLM Adapter
-- OpenAI-compatible LLM Adapter
-- OipRuntime
-- Workflow Engine
-- Knowledge Engine
-- Context Builder
-- Plugin Commerce
-- Plugin HR
-- Adapters externes: Vector, Document, OCR, Observability, Automation, MCP
-
-## API Locale
-
-Demarrer l'API:
-
-```bash
-npm run dev:api
-```
-
-Endpoints:
-
-- `GET /health`
-- `GET /capabilities`
-- `POST /chat`
-- `POST /actions`
-- `POST /documents`
-- `GET /admin/audit`
-- `GET /admin/traces`
-- `GET /admin/events`
-
-Exemple `POST /chat`:
-
-```json
-{
-  "input": "Ajoute 20 sacs de ciment au stock",
-  "user": {
-    "userId": "user-001",
-    "organizationId": "opays-demo",
-    "roles": ["inventory.manager"],
-    "locale": "fr-CD"
-  }
-}
-```
-
-Configuration LLM:
-
-```bash
-OIP_LLM_PROVIDER=mock
-OIP_LLM_PROVIDER=openai-compatible
-OIP_LLM_BASE_URL=https://api.openai.com/v1
-OIP_LLM_API_KEY=...
-OIP_LLM_MODEL=gpt-4.1-mini
-```
-
-Persistence locale optionnelle:
-
-```bash
-OIP_DATA_DIR=.oip-data
-```
+Copyright (c) Opays.

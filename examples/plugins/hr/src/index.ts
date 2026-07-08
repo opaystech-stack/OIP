@@ -1,5 +1,5 @@
-import type { ActionResult, JsonObject, OipPlugin, RuntimeContext, ToolHandler } from "../../../packages/core/src/index.js";
-import { definePluginModule } from "../../../packages/plugin-sdk/src/index.js";
+import type { ActionResult, JsonObject, OipPlugin, RuntimeContext, ToolHandler } from "../../../../packages/core/src/index.js";
+import { definePluginModule } from "../../../../packages/plugin-sdk/src/index.js";
 
 export interface EmployeeRecord {
   readonly id: string;

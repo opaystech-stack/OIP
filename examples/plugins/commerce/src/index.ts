@@ -1,5 +1,5 @@
-import type { ActionResult, JsonObject, OipPlugin, RuntimeContext, ToolHandler } from "../../../packages/core/src/index.js";
-import { definePluginModule } from "../../../packages/plugin-sdk/src/index.js";
+import type { ActionResult, JsonObject, OipPlugin, RuntimeContext, ToolHandler } from "../../../../packages/core/src/index.js";
+import { definePluginModule } from "../../../../packages/plugin-sdk/src/index.js";
 import { CommerceRestockWorkflow, commerceRestockWorkflowDefinition } from "./workflows.js";
 
 const inventory: Record<string, number> = {};

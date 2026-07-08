@@ -4,8 +4,8 @@ import type { JsonObject, RuntimeContext } from "../../../packages/core/src/inde
 import { ChatService } from "../../../packages/chat-service/src/index.js";
 import type { OipRuntime } from "../../../packages/runtime/src/index.js";
 import { createRuntimeFromEnv } from "../../../packages/runtime/src/factory.js";
-import { commercePluginModule } from "../../../plugins/commerce/src/index.js";
-import { hrPluginModule } from "../../../plugins/hr/src/index.js";
+import { commercePluginModule } from "../../plugins/commerce/src/index.js";
+import { hrPluginModule } from "../../plugins/hr/src/index.js";
 
 export interface ApiServerOptions {
   readonly port: number;

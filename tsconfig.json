@@ -13,9 +13,7 @@
     "skipLibCheck": true
   },
   "include": [
-    "apps/**/*.ts",
     "packages/**/*.ts",
-    "plugins/**/*.ts",
     "examples/**/*.ts",
     "tests/**/*.ts"
   ]

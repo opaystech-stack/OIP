@@ -1,5 +1,5 @@
-import type { ActionEngine, JsonObject, RuntimeContext } from "../../../packages/core/src/index.js";
-import type { WorkflowDefinition, WorkflowHandler, WorkflowResult } from "../../../packages/workflow-engine/src/index.js";
+import type { ActionEngine, JsonObject, RuntimeContext } from "../../../../packages/core/src/index.js";
+import type { WorkflowDefinition, WorkflowHandler, WorkflowResult } from "../../../../packages/workflow-engine/src/index.js";
 
 export const commerceRestockWorkflowDefinition: WorkflowDefinition = {
   id: "commerce.workflow.restock",

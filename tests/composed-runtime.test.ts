@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { ComposedRuntime, OipRuntimeBuilder } from "../packages/runtime/src/builder.js";
-import { commercePluginModule } from "../plugins/commerce/src/index.js";
+import { commercePluginModule } from "../examples/plugins/commerce/src/index.js";
 import { InMemoryIdentityRuntime } from "../packages/identity-runtime/src/index.js";
 import { InMemoryPolicyRuntime } from "../packages/policy-runtime/src/index.js";
 
