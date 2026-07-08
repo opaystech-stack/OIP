@@ -105,28 +105,66 @@ Application
   ↓
 Discovery → Manifest proposé
   ↓
-Validation humaine
+Manifest Draft
   ↓
-Manifest validé
+Manifest Architecture Review
   ↓
-Blueprint de migration
+Manifest v1 (Approved)
+  ↓
+Migration Backlog (Validated)
+  ↓
+Migration Blueprint
   ↓
 Shadow Mode
   ↓
 Migration incrémentale
+  ↓
+Cleanup
   ↓
 Runtime intégré
   ↓
 Évolution via Manifest
 ```
 
-### 4.3 Convergence
+### 4.3 Nouvelle application
 
-Les deux flux convergeant vers un cycle de vie unique.
+```text
+Idée
+  ↓
+Manifest Draft
+  ↓
+Manifest Architecture Review
+  ↓
+Manifest v1 (Approved)
+  ↓
+Generator → codebase initiale
+  ↓
+Développement itératif
+  ↓
+Runtime intégré nativement
+  ↓
+Évolution via Manifest
+```
+
+### 4.4 Convergence
+
+Les deux flux convergeant vers un cycle de vie unique. La différence majeure est que les applications existantes passent par une phase de **Migration Backlog** avant le Blueprint.
 
 ---
 
-## 5. Principes de découplage
+## 5. Artefacts complémentaires
+
+| Artefact | Source | Rôle |
+|---|---|---|
+| Manifest | Application | Décrit l'application. |
+| Migration Backlog | Manifest v1 | Décrit le travail de migration. |
+| Migration Blueprint | Manifest + Backlog | Décrit la stratégie d'exécution. |
+
+**Règle** : aucun Blueprint ne peut être produit sans un Migration Backlog validé.
+
+---
+
+## 6. Principes de découplage
 
 | Relation | Règle |
 |---|---|
@@ -136,10 +174,11 @@ Les deux flux convergeant vers un cycle de vie unique.
 | Runtime → Manifest | Le Runtime lit le Manifest uniquement pour compatibilité et chargement. |
 | Generator → Manifest | Le Generator est entièrement piloté par le Manifest. |
 | Discovery → Application | Lecture seule. Aucune écriture. |
+| Blueprint → Migration Backlog | Le Blueprint s'appuie sur le Backlog validé. |
 
 ---
 
-## 6. Standards partagés
+## 7. Standards partagés
 
 Toutes les applications générées ou migrées partagent :
 
@@ -152,7 +191,7 @@ Toutes les applications générées ou migrées partagent :
 
 ---
 
-## 7. Évolutivité
+## 8. Évolutivité
 
 - Le Manifest est versionné et stable.
 - Les piliers peuvent évoluer indépendamment tant qu'ils respectent le contrat.
@@ -161,7 +200,7 @@ Toutes les applications générées ou migrées partagent :
 
 ---
 
-## 8. Références
+## 9. Références
 
 - `docs/oip-integration-manifest-spec.md`
 - `docs/opays.manifest.schema.json`
@@ -174,3 +213,5 @@ Toutes les applications générées ou migrées partagent :
 - `docs/oip-discovery-to-manifest.md`
 - `docs/oip-generator-from-manifest.md`
 - `docs/oip-roadmap-discovery-generator.md`
+- `docs/oip-migration-backlog-standard.md`
+- `examples/opays.migration-backlog.example.yaml`

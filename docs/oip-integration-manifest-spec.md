@@ -16,6 +16,34 @@ L'analyse automatique d'une codebase n'est plus une finalité : c'est un outil d
 
 ---
 
+## 1.1 Cycle d'intégration officiel
+
+Le cycle officiel d'intégration d'une application existante à OIP est :
+
+```text
+Discovery
+    ↓
+Manifest Draft
+    ↓
+Manifest Architecture Review
+    ↓
+Manifest v1 (Approved)
+    ↓
+Migration Backlog (Validated)
+    ↓
+Migration Blueprint
+    ↓
+Shadow Mode
+    ↓
+Migration
+    ↓
+Cleanup
+```
+
+**Aucun Migration Blueprint ne peut être produit sans un Migration Backlog validé.**
+
+---
+
 ## 2. Format recommandé
 
 Le format par défaut est **YAML**. Il est plus lisible par les humains qui valideront le Manifest.  
@@ -452,6 +480,43 @@ migration:
 
 ---
 
+## 6. Migration Backlog
+
+Le **Migration Backlog** est un artefact complémentaire obligatoire. Il décrit le travail de migration à réaliser, construit exclusivement à partir du Manifest v1.
+
+Le Manifest décrit l'application. Le Migration Backlog décrit le travail. Le Blueprint décrit la stratégie d'exécution. Aucun Blueprint ne peut être produit sans un Migration Backlog validé.
+
+Voir :
+
+- `docs/oip-migration-backlog-standard.md`
+- `examples/opays.migration-backlog.example.yaml`
+
+---
+
+## 7. Gouvernance et validation
+
+### 7.1 Propriétaire du Manifest
+
+Le Manifest appartient à l'application. OIP ne doit jamais le modifier directement.
+
+### 7.2 Cycle de validation officiel
+
+1. **Discovery** : analyse de la codebase.
+2. **Manifest Draft** : première proposition.
+3. **Manifest Architecture Review** : revue par l'équipe architecture.
+4. **Manifest v1 (Approved)** : approbation formelle.
+5. **Migration Backlog (Validated)** : backlog de migration validé.
+6. **Migration Blueprint** : stratégie d'exécution.
+7. **Shadow Mode** : exécution parallèle.
+8. **Migration** : remplacement progressif.
+9. **Cleanup** : suppression des composants legacy.
+
+### 7.3 Modification du Manifest
+
+Le Manifest évolue uniquement par pull request dans le dépôt de l'application. L'analyse automatique peut proposer un diff, mais l'approbation est humaine.
+
+---
+
 ## 8. Prochaines étapes de validation
 
 1. Valider le schéma proposé dans une revue d'architecture.
@@ -459,12 +524,14 @@ migration:
 3. Produire un ADR côté OIP : `docs/adr/adr-005-integration-manifest.md`.
 4. Appliquer ce contrat sur le premier pilote : **Opays-HQ**.
 5. Écrire un guide d'analyse : `docs/oip-manifest-analysis-guide.md`.
+6. Définir et valider le standard du Migration Backlog : `docs/oip-migration-backlog-standard.md`.
 
 ---
 
 ## 9. Points de vigilance
 
 - Le Manifest appartient à l'application, jamais à OIP.
-- Aucune migration ne commence sans Manifest validé.
+- **Aucun Migration Blueprint ne commence sans Manifest v1 approuvé et Migration Backlog validé.**
 - Aucune logique applicative ne transite dans OIP.
 - OIP reste générique ; l'application s'adapte via son Manifest et ses adaptateurs.
+- Le Manifest, le Migration Backlog et le Blueprint sont complémentaires et ne doivent jamais être fusionnés.

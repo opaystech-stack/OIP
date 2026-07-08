@@ -32,6 +32,16 @@ Chaque application intégrée à OIP doit posséder son propre **Manifest d'int�
 3. **L'analyse automatique génère ou met à jour le Manifest**, mais ne le remplace jamais automatiquement.
 4. **Toute migration OIP utilise exclusivement le Manifest validé**.
 5. **Aucune logique spécifique à une application** n'est ajoutée dans le moteur OIP.
+6. **Aucun Blueprint de migration ne peut être produit sans un Migration Backlog validé**.
+7. **Le Manifest, le Migration Backlog et le Blueprint sont complémentaires et ne doivent jamais être fusionnés**.
+
+### Artefacts complémentaires
+
+| Artefact | Source | Rôle |
+|---|---|---|
+| Manifest | Application | Décrit l'application. |
+| Migration Backlog | Manifest v1 approuvé | Décrit le travail de migration. |
+| Migration Blueprint | Manifest + Migration Backlog | Décrit la stratégie d'exécution. |
 
 ## Conséquences
 
@@ -72,24 +82,28 @@ OIP valide le Manifest selon trois niveaux :
 ## Cycle d'intégration
 
 ```text
-Analyse de la codebase
+Discovery
         ↓
-Génération ou comparaison avec le Manifest existant
+Manifest Draft
         ↓
-Proposition de diff (opays.manifest.proposed.yaml)
+Manifest Architecture Review
         ↓
-Validation humaine
+Manifest v1 (Approved)
         ↓
-Mise à jour officielle du Manifest
+Migration Backlog (Validated)
         ↓
-Blueprint de migration basé sur le Manifest
+Migration Blueprint basé sur le Manifest et le Migration Backlog
         ↓
 Shadow Mode
         ↓
 Migration progressive
         ↓
+Cleanup
+        ↓
 Suppression du moteur legacy
 ```
+
+> **Règle absolue** : aucun Blueprint ne peut être produit sans un Migration Backlog validé. Le Backlog est construit exclusivement à partir du Manifest v1.
 
 ## Alternatives considérées
 
@@ -111,7 +125,9 @@ L'analyse produirait du code métier OIP spécifique à l'application. Rejeté c
 - `docs/opays.manifest.schema.json`
 - `docs/oip-manifest-analysis-guide.md`
 - `docs/oip-manifest-validation-strategy.md`
+- `docs/oip-migration-backlog-standard.md`
 - `examples/opays.manifest.example.yaml`
+- `examples/opays.migration-backlog.example.yaml`
 
 ## Notes
 

@@ -1,0 +1,101 @@
+epicId: MIG-EPC-001
+title: Mise sous OIP de la gestion commerciale
+businessObjective: Permettre aux commerciaux de piloter les opportunités et les clients par langage naturel.
+riskLevel: medium
+complexity: large
+justification: Le module CRM actuel contient un chatbot maison non maintenu et des formulaires complexes.
+risks:
+  technical:
+    - "Refonte du routeur d'intentions legacy"
+  business:
+    - "Baisse temporaire de productivité pendant la transition"
+  user:
+    - "Changement de l'interface de saisie des opportunités"
+mitigation: Shadow Mode de 4 semaines avec formation utilisateur.
+rollback: Désactivation du feature flag `oip-crm-shadow`.
+
+features:
+  - featureId: MIG-FEA-001
+    title: Capabilities clients et opportunités
+    businessObjective: Créer, rechercher et mettre à jour les clients et opportunités via OIP.
+    migrationItems:
+      - id: MIG-ITM-001
+        title: "Capability customer.create"
+        description: Rendre possible la création d'un client via une intention conversationnelle.
+        businessObjective: Réduire le temps de création d'une fiche client de 50%.
+        justification: Le formulaire actuel est jugé trop lourd par les commerciaux.
+        moduleIds: [customers, crm]
+        serviceIds: [customer-service]
+        capabilityIds: [business.customer.create]
+        runtimeIds: [decision]
+        adapterIds: [customer-service-adapter, audit-adapter]
+        legacyComponents: [legacy-chatbot-crm]
+        featureFlags: [oip-crm-shadow]
+        dependencies: []
+        priority: P0
+        riskLevel: medium
+        complexity: medium
+        userImpact: Faible en Shadow Mode, modéré après activation.
+        acceptanceCriteria:
+          - "La capability est exécutée correctement en Shadow Mode sur 100 requêtes"
+          - "Le taux de rejet est inférieur à 5%"
+        rollbackConditions:
+          - "Désactivation du feature flag"
+          - "Retour au formulaire legacy"
+
+      - id: MIG-ITM-002
+        title: "Capability customer.search"
+        description: Permettre la recherche de clients par critères conversationnels.
+        businessObjective: Accélérer l'accès aux informations clients.
+        justification: La recherche actuelle par formulaire avancé est peu utilisée.
+        moduleIds: [customers]
+        serviceIds: [customer-service]
+        capabilityIds: [business.customer.search]
+        runtimeIds: [decision]
+        adapterIds: [customer-service-adapter]
+        legacyComponents: []
+        featureFlags: [oip-crm-shadow]
+        dependencies: [MIG-ITM-001]
+        priority: P1
+        riskLevel: low
+        complexity: small
+        userImpact: Faible.
+        acceptanceCriteria:
+          - "Les recherches les plus fréquentes retournent un résultat correct"
+        rollbackConditions:
+          - "Désactivation du feature flag"
+
+      - id: MIG-ITM-003
+        title: "Capability opportunity.create"
+        description: Créer une opportunité commerciale à partir d'une demande en langage naturel.
+        businessObjective: Réduire la friction de création d'opportunités.
+        justification: L'assistant vocal existant ne gère pas cette action.
+        moduleIds: [opportunities, crm]
+        serviceIds: [opportunity-service]
+        capabilityIds: [business.opportunity.create]
+        runtimeIds: [decision]
+        adapterIds: [opportunity-service-adapter, audit-adapter]
+        legacyComponents: [legacy-voice-assistant]
+        featureFlags: [oip-crm-shadow, oip-opportunity-confirmation]
+        dependencies: [MIG-ITM-001]
+        priority: P0
+        riskLevel: high
+        complexity: large
+        userImpact: Important — nouvelle modalité de saisie.
+        acceptanceCriteria:
+          - "La capability gère la confirmation explicite"
+          - "Les opportunités créées sont synchronisées en base"
+        rollbackConditions:
+          - "Désactivation du feature flag"
+          - "Réactivation du formulaire legacy"
+
+roadmap:
+  order:
+    - MIG-EPC-001
+    - MIG-EPC-002
+  parallelizable:
+    - [MIG-ITM-001, MIG-ITM-002]
+  criticalPath:
+    - MIG-ITM-001
+    - MIG-ITM-003
+  estimatedEffort: "3 sprints"

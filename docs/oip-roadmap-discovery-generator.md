@@ -82,9 +82,9 @@ Livrable : guide "De la codebase existante à la nouvelle application générée
 Objectif : appliquer le cycle sur une application réelle.
 
 - Lancer Discovery sur Opays-HQ.
-- Valider le Manifest avec l'équipe.
-- Générer la structure cible.
-- Écrire le Blueprint de migration.
+- Valider le Manifest avec l'équipe (Manifest v1 approuvé).
+- Produire le **Migration Backlog** validé.
+- Écrire le **Blueprint de migration** basé sur le Manifest et le Backlog.
 - Activer le Shadow Mode.
 - Migrer progressivement les capabilities.
 
@@ -111,6 +111,7 @@ Livrable : OIP devient la plateforme officielle de conception, génération et i
 - Chaque phase se termine par des tests.
 - Aucune phase ne modifie le Runtime sans ADR.
 - Le Manifest reste le contrat central à chaque étape.
+- **Aucun Blueprint de migration ne peut être produit sans un Migration Backlog validé.**
 
 ---
 
@@ -118,6 +119,8 @@ Livrable : OIP devient la plateforme officielle de conception, génération et i
 
 - `docs/oip-three-pillars-architecture.md`
 - `docs/oip-target-package-structure.md`
+- `docs/oip-migration-backlog-standard.md`
+- `examples/opays.migration-backlog.example.yaml`
 - `docs/oip-discovery-role.md`
 - `docs/oip-generator-role.md`
 - `docs/rfc/rfc-001-discovery-generator-runtime-contracts.md`

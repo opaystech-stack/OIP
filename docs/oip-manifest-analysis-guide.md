@@ -195,7 +195,28 @@ chore(manifest): mise à jour capabilities suite ajout export de rapports
 
 ---
 
-## 7. Phase 6 — Utilisation par OIP
+## 7. Phase 6 — Production du Migration Backlog
+
+Une fois le Manifest v1 approuvé, le Discovery ne génère pas directement le Migration Backlog. Il fournit les informations nécessaires pour que l'équipe produise le Backlog.
+
+Le **Migration Backlog** est construit exclusivement à partir du Manifest v1. Il décrit le travail de migration, tandis que le Manifest décrit l'application.
+
+### 7.1 Règles
+
+- Le Manifest décrit l'application.
+- Le Migration Backlog décrit le travail.
+- Le Migration Blueprint décrit la stratégie d'exécution.
+- Aucun Blueprint ne peut être produit sans un Backlog validé.
+
+### 7.2 Contenu fourni par le Discovery
+
+- modules, services et capabilities identifiés ;
+- composants legacy à remplacer ;
+- adaptateurs nécessaires ;
+- dépendances critiques ;
+- risques et dette technique.
+
+## 8. Phase 7 — Utilisation par OIP
 
 Une fois le Manifest validé, OIP l'utilise comme unique source de vérité pour :
 
@@ -203,22 +224,23 @@ Une fois le Manifest validé, OIP l'utilise comme unique source de vérité pour
 - charger les capabilities ;
 - identifier les adaptateurs requis ;
 - connaître les feature flags de migration ;
-- produire le Blueprint de migration.
+- produire le Migration Backlog et le Blueprint.
 
 ---
 
-## 8. Anti-patterns interdits
+## 9. Anti-patterns interdits
 
-| Interdit | Raison |
-|---|---|
+|| Interdit | Raison |
+|---|---|---|
 | Réécrire `opays.manifest.yaml` automatiquement | Le Manifest appartient à l'application et doit être validé humainement. |
+| Générer un Blueprint sans Migration Backlog validé | Le Backlog est obligatoire avant toute stratégie d'exécution. |
 | Générer du code OIP spécifique à l'application | OIP reste générique. Seuls les adaptateurs sont du ressort de l'application. |
 | Analyser sans valider la compatibilité OIP | Un Manifest incompatible peut provoquer un échec de démarrage. |
 | Ignorer les personnalisations manuelles | L'analyse doit protéger les décisions humaines. |
 
 ---
 
-## 9. Checklist d'analyse
+## 10. Checklist d'analyse
 
 - [ ] Architecture de l'application comprise.
 - [ ] Modules métier identifiés.
@@ -233,13 +255,16 @@ Une fois le Manifest validé, OIP l'utilise comme unique source de vérité pour
 - [ ] Manifest généré dans une branche dédiée.
 - [ ] Diff proposé et validé si Manifest existant.
 - [ ] JSON Schema validé sur le Manifest final.
+- [ ] Migration Backlog validé avant production du Blueprint.
 
 ---
 
-## 10. Références
+## 11. Références
 
 - `docs/oip-integration-manifest-spec.md`
 - `docs/opays.manifest.schema.json`
 - `docs/adr/adr-005-integration-manifest.md`
 - `docs/oip-manifest-validation-strategy.md`
+- `docs/oip-migration-backlog-standard.md`
 - `examples/opays.manifest.example.yaml`
+- `examples/opays.migration-backlog.example.yaml`
