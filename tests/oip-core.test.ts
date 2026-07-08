@@ -18,6 +18,7 @@ import { createLlmAdapter, loadLlmConfig } from "../packages/config/src/index.js
 import { ContextBuilder } from "../packages/context-builder/src/index.js";
 import { InMemoryEventBus } from "../packages/event-bus/src/index.js";
 import { JsonFileAuditLog, JsonFileEventBus, JsonFileMemoryStore } from "../packages/file-store/src/index.js";
+import { MockOcrAdapter, PlainTextDocumentAdapter } from "../packages/document-adapters/src/index.js";
 import { InMemoryKnowledgeSource, KnowledgeEngine } from "../packages/knowledge-engine/src/index.js";
 import { MockLlmAdapter, OpenAiCompatibleLlmAdapter } from "../packages/llm-adapter/src/index.js";
 import { LlmPlanner } from "../packages/planner/src/index.js";
@@ -328,6 +329,42 @@ const tests: readonly TestCase[] = [
       assertEqual(ingested.chunkCount, 1);
       assertEqual(results[0]?.sourceId, "documents");
       assertEqual(results[0]?.metadata.documentTitle, "Procedure inventaire");
+    },
+  },
+  {
+    name: "Document service ingests binary text through a document adapter",
+    run: async () => {
+      const runtime = new OipRuntime({
+        documentParser: new PlainTextDocumentAdapter(),
+      }).use(commercePluginModule);
+
+      const ingested = await runtime.documents.ingestBinary({
+        name: "procedure-stock.txt",
+        bytes: new TextEncoder().encode("Le stock ciment vient du document texte."),
+        mimeType: "text/plain",
+      });
+      const results = await runtime.knowledge.search("stock ciment", createContext(["inventory.manager"]));
+
+      assertEqual(ingested.chunkCount, 1);
+      assertEqual(results[0]?.metadata.name, "procedure-stock.txt");
+    },
+  },
+  {
+    name: "Document service can ingest OCR text through an OCR adapter",
+    run: async () => {
+      const runtime = new OipRuntime({
+        ocr: new MockOcrAdapter("Facture image avec ciment et stock."),
+      }).use(commercePluginModule);
+
+      const ingested = await runtime.documents.ingestBinary({
+        name: "facture.png",
+        bytes: new Uint8Array([1, 2, 3]),
+        mimeType: "image/png",
+      });
+      const results = await runtime.knowledge.search("facture ciment", createContext(["inventory.manager"]));
+
+      assertEqual(ingested.chunkCount, 1);
+      assertEqual(results[0]?.metadata.documentTitle, "facture.png");
     },
   },
   {

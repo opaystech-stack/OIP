@@ -18,6 +18,8 @@
 - Context Builder
 - Knowledge Engine
 - Document Service with text chunking
+- Plain text document adapter
+- Mock OCR adapter contract implementation
 - Vector Adapter contract
 - In-memory vector adapter with cosine similarity
 - Hybrid lexical/vector search
@@ -64,6 +66,8 @@ The test suite verifies:
 - chat end-to-end flow
 - default mock LLM configuration
 - document ingestion and search
+- binary text document ingestion through `DocumentAdapter`
+- OCR ingestion path through `OcrAdapter`
 - vector nearest-neighbor search
 - hybrid lexical/vector search
 - confirmation blocking for sensitive capabilities
@@ -78,7 +82,8 @@ The test suite verifies:
 - Audit log defaults to in-memory unless `OIP_DATA_DIR` is configured
 - Event bus defaults to in-memory unless `OIP_DATA_DIR` is configured
 - Observability traces are in-memory
-- Document parsing accepts extracted text only
+- Document parsing supports extracted text and binary text through a plain adapter
+- OCR path is wired through an adapter, but production OCR is not integrated yet
 - Vector search has an in-memory adapter; ZVec is not integrated yet
 - LLM provider defaults to mock unless env vars are configured
 

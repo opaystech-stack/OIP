@@ -1,4 +1,5 @@
 import type { JsonObject } from "../../core/src/index.js";
+import type { DocumentAdapter, OcrAdapter } from "../../adapters/src/index.js";
 import { MutableKnowledgeSource } from "../../knowledge-engine/src/index.js";
 
 export interface DocumentInput {
@@ -12,10 +13,19 @@ export interface IngestedDocument {
   readonly chunkCount: number;
 }
 
+export interface BinaryDocumentInput {
+  readonly name: string;
+  readonly bytes: Uint8Array;
+  readonly mimeType: string;
+  readonly metadata?: JsonObject;
+}
+
 export class DocumentService {
   constructor(
     private readonly target: MutableKnowledgeSource,
     private readonly chunkSize = 800,
+    private readonly parser?: DocumentAdapter,
+    private readonly ocr?: OcrAdapter,
   ) {}
 
   ingest(input: DocumentInput): IngestedDocument {
@@ -37,6 +47,36 @@ export class DocumentService {
       title: input.title,
       chunkCount: chunks.length,
     };
+  }
+
+  async ingestBinary(input: BinaryDocumentInput): Promise<IngestedDocument> {
+    if (this.parser) {
+      const parsed = await this.parser.parse(input);
+
+      return this.ingest({
+        title: input.name,
+        text: parsed.text,
+        metadata: {
+          ...parsed.metadata,
+          ...(input.metadata ?? {}),
+        },
+      });
+    }
+
+    if (this.ocr && input.mimeType.startsWith("image/")) {
+      const text = await this.ocr.extractText(input);
+
+      return this.ingest({
+        title: input.name,
+        text,
+        metadata: {
+          mimeType: input.mimeType,
+          ...(input.metadata ?? {}),
+        },
+      });
+    }
+
+    throw new Error(`No document adapter available for mime type: ${input.mimeType}`);
   }
 }
 

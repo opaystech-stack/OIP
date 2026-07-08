@@ -19,6 +19,7 @@ import { InMemoryStore } from "../../memory/src/index.js";
 import type { MemoryStore } from "../../memory/src/index.js";
 import { DocumentService } from "../../document-service/src/index.js";
 import { MutableKnowledgeSource } from "../../knowledge-engine/src/index.js";
+import type { DocumentAdapter, OcrAdapter } from "../../adapters/src/index.js";
 import { LlmPlanner } from "../../planner/src/index.js";
 import { installPluginModule, type OipPluginModule } from "../../plugin-sdk/src/index.js";
 import { WorkflowEngine, WorkflowRegistry } from "../../workflow-engine/src/index.js";
@@ -29,7 +30,7 @@ export class OipRuntime {
   readonly workflows = new WorkflowRegistry();
   readonly knowledge: KnowledgeEngine;
   readonly documentKnowledge = new MutableKnowledgeSource("documents", "Documents");
-  readonly documents = new DocumentService(this.documentKnowledge);
+  readonly documents: DocumentService;
   readonly memory: MemoryStore;
   readonly observability = new InMemoryObservabilityAdapter();
   readonly events: EventPublisher & { list?: () => unknown };
@@ -43,6 +44,7 @@ export class OipRuntime {
     this.memory = options.memory ?? new InMemoryStore();
     this.events = options.events ?? new InMemoryEventBus();
     this.audit = options.audit ?? new InMemoryAuditLog();
+    this.documents = new DocumentService(this.documentKnowledge, 800, options.documentParser, options.ocr);
     this.actions = new ActionEngine(this.capabilities, this.tools, new Validator(), this.events, this.audit);
     this.workflowEngine = new WorkflowEngine(this.workflows, this.actions);
     this.contextBuilder = new ContextBuilder(this.knowledge, this.memory);
@@ -77,4 +79,6 @@ export interface OipRuntimeOptions {
   readonly events?: EventPublisher & { list?: () => unknown };
   readonly audit?: AuditLogger & { list?: () => unknown };
   readonly vector?: VectorAdapter;
+  readonly documentParser?: DocumentAdapter;
+  readonly ocr?: OcrAdapter;
 }
