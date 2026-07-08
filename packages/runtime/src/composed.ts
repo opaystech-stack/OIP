@@ -28,12 +28,14 @@ import { EventRuntimePublisherAdapter } from "../../event-runtime/src/index.js";
 import { InMemoryAuditLog } from "../../audit-log/src/index.js";
 import { WorkflowRegistry } from "../../workflow-engine/src/index.js";
 import { installPluginModule, type OipPluginModule } from "../../plugin-sdk/src/index.js";
+import { ActionEngineRuntime } from "../../action-runtime/src/index.js";
+import { RuleBasedDecisionRuntime } from "../../decision-runtime/src/index.js";
 
 export class ComposedRuntime {
   readonly capabilities = new CapabilityRegistry();
   readonly tools = new ToolRegistry();
   readonly workflows = new WorkflowRegistry();
-  readonly actions: ActionEngine;
+  readonly actions: ActionEngineRuntime;
 
   constructor(private readonly runtimes: Partial<RuntimeBuilderOptions> = {}) {
     const eventPublisher = new EventRuntimePublisherAdapter(
@@ -42,7 +44,7 @@ export class ComposedRuntime {
         subscribe: async () => ({ unsubscribe: () => {} }),
       },
     );
-    this.actions = new ActionEngine(this.capabilities, this.tools, new Validator(), eventPublisher, new InMemoryAuditLog());
+    this.actions = new ActionEngineRuntime(this.capabilities, this.tools, eventPublisher, new InMemoryAuditLog());
   }
 
   use(module: OipPluginModule): this {
@@ -72,14 +74,12 @@ export class ComposedRuntime {
   }
 
   async decide(intent: Intention, context: ExecutionContext): Promise<import("../../core/src/contracts/index.js").DecisionResult> {
-    return this.runtimes.decision?.decide(intent, context) ?? {
-      type: "reject",
-      reason: "DecisionRuntime not configured.",
-    };
+    const decisionRuntime = this.runtimes.decision ?? new RuleBasedDecisionRuntime(this.capabilities.list());
+    return decisionRuntime.decide(intent, context);
   }
 
   async execute(action: PlannedAction, context: ExecutionContext) {
-    return this.actions.execute(action, context as unknown as import("../../core/src/types.js").RuntimeContext);
+    return this.actions.execute(action, context);
   }
 
   get channel(): ChannelRuntime | undefined {

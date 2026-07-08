@@ -45,12 +45,19 @@ export class RuleBasedDecisionRuntime implements DecisionRuntime {
   }
 
   private findBestCapability(intent: Intention): Capability | undefined {
-    const normalizedGoal = intent.goal.toLowerCase();
+    const entityValues = intent.entities.map((e) => String(e.value)).join(" ");
+    const searchableText = `${intent.goal} ${intent.rawText} ${intent.entities.map((e) => e.name).join(" ")} ${entityValues}`.toLowerCase();
 
-    return this.capabilities.find((capability) =>
-      normalizedGoal.includes(capability.id.toLowerCase()) ||
-      normalizedGoal.includes(capability.description.toLowerCase()),
-    );
+    return this.capabilities.find((capability) => {
+      const normalizedId = capability.id.toLowerCase();
+      const normalizedDescription = capability.description.toLowerCase();
+      const matches =
+        normalizedId.includes(searchableText) ||
+        normalizedDescription.includes(searchableText) ||
+        searchableText.includes(normalizedId) ||
+        searchableText.includes(normalizedDescription);
+      return matches;
+    });
   }
 
   private extractArguments(intent: Intention, capability: Capability): import("../../core/src/contracts/common.js").JsonObject {

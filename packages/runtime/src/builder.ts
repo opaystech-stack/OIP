@@ -168,7 +168,7 @@ export class OipRuntimeBuilder {
       identity,
       context: this.runtimes.context ?? new InMemoryContextRuntime(memory),
       llm: this.runtimes.llm ?? createDefaultLlmRuntime(),
-      decision: this.runtimes.decision ?? new RuleBasedDecisionRuntime(),
+      decision: this.runtimes.decision,
       policy: this.runtimes.policy ?? new InMemoryPolicyRuntime(),
       workflow: this.runtimes.workflow ?? createDefaultWorkflowRuntime(),
       ...(this.runtimes.action !== undefined ? { action: this.runtimes.action } : {}),
