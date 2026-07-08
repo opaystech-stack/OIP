@@ -11,14 +11,12 @@ import {
 import { InMemoryObservabilityAdapter } from "../../adapters/src/index.js";
 import type { AutomationAdapter, McpAdapter, VectorAdapter } from "../../adapters/src/index.js";
 import { InMemoryAuditLog } from "../../audit-log/src/index.js";
-import { ContextBuilder, type BuiltContext } from "../../context-builder/src/index.js";
-import { InMemoryEventBus } from "../../event-bus/src/index.js";
+import type { BuiltContext } from "../../context-builder/src/index.js";
 import { InMemoryMemoryRuntime, LegacyMemoryRuntimeAdapter, MemoryRuntimeStoreAdapter } from "../../memory-runtime/src/index.js";
 import { InMemoryEventRuntime, EventRuntimePublisherAdapter } from "../../event-runtime/src/index.js";
 import { InMemoryContextRuntime, ContextRuntimeBuilderAdapter } from "../../context-runtime/src/index.js";
 import { KnowledgeEngine } from "../../knowledge-engine/src/index.js";
 import type { LlmAdapter } from "../../llm-adapter/src/index.js";
-import { InMemoryStore } from "../../memory/src/index.js";
 import type { MemoryStore } from "../../memory/src/index.js";
 import { DocumentService } from "../../document-service/src/index.js";
 import { MutableKnowledgeSource } from "../../knowledge-engine/src/index.js";
@@ -43,7 +41,7 @@ export class OipRuntime {
   readonly audit: AuditLogger & { list?: () => unknown };
   readonly actions: ActionEngine;
   readonly workflowEngine: WorkflowEngine;
-  readonly contextBuilder: ContextBuilder;
+  readonly contextBuilder: import("../../context-runtime/src/adapter.js").ContextRuntimeBuilderAdapter;
 
   constructor(options: OipRuntimeOptions = {}) {
     this.knowledge = new KnowledgeEngine(options.vector);
