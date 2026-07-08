@@ -1,13 +1,9 @@
 import type { JsonObject } from "./common.js";
 
 export interface DomainEvent {
-  readonly id: string;
   readonly type: string;
   readonly payload: JsonObject;
-  readonly workspaceId: string;
-  readonly requestId: string;
   readonly occurredAt: string;
-  readonly correlationId?: string;
 }
 
 export interface EventFilter {

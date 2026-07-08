@@ -9,13 +9,11 @@ export interface ActionError {
 
 export interface ActionResult {
   readonly capabilityId: string;
-  readonly status: "completed" | "rejected" | "pending" | "awaiting_confirmation";
+  readonly status: "completed" | "rejected";
   readonly data?: JsonObject;
-  readonly events: readonly JsonObject[];
-  readonly errors?: readonly ActionError[];
-  readonly auditId: string;
+  readonly events: readonly import("./event.js").DomainEvent[];
 }
 
 export interface ToolHandler {
-  execute(args: JsonObject, context: unknown): Promise<ActionResult>;
+  execute(args: JsonObject, context: import("./context.js").ExecutionContext): Promise<ActionResult>;
 }
