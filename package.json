@@ -9,7 +9,8 @@
     "check": "tsc -p tsconfig.json --noEmit",
     "demo": "npm run build && node dist/examples/commerce-demo.js",
     "dev:api": "npm run build && node dist/apps/api/src/index.js",
-    "test": "npm run build && node dist/tests/oip-core.test.js"
+    "test": "npm run build && node dist/tests/oip-core.test.js",
+    "test:builder": "npm run build && node dist/tests/runtime-builder.test.js"
   },
   "devDependencies": {
     "@types/node": "^26.1.1"
