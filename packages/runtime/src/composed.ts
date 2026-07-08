@@ -6,6 +6,7 @@ import {
 } from "../../core/src/index.js";
 import type {
   ActionRuntime,
+  ChannelRuntime,
   ContextRuntime,
   DecisionRuntime,
   EventRuntime,
@@ -23,6 +24,8 @@ import type {
   SkillRuntime,
   WorkflowRuntime,
 } from "../../core/src/contracts/index.js";
+import { EventRuntimePublisherAdapter } from "../../event-runtime/src/index.js";
+import { InMemoryAuditLog } from "../../audit-log/src/index.js";
 import { WorkflowRegistry } from "../../workflow-engine/src/index.js";
 import { installPluginModule, type OipPluginModule } from "../../plugin-sdk/src/index.js";
 
@@ -32,14 +35,14 @@ export class ComposedRuntime {
   readonly workflows = new WorkflowRegistry();
   readonly actions: ActionEngine;
 
-  constructor(
-    private readonly options: Required<RuntimeBuilderOptions>,
-  ) {
-    this.actions = new ActionEngine(this.capabilities, this.tools, new Validator(), {
-      publish: async (event) => this.options.event.publish(event),
-    }, {
-      record: async () => Promise.resolve(),
-    });
+  constructor(private readonly runtimes: Partial<RuntimeBuilderOptions> = {}) {
+    const eventPublisher = new EventRuntimePublisherAdapter(
+      this.runtimes.event ?? {
+        publish: async () => Promise.resolve(),
+        subscribe: async () => ({ unsubscribe: () => {} }),
+      },
+    );
+    this.actions = new ActionEngine(this.capabilities, this.tools, new Validator(), eventPublisher, new InMemoryAuditLog());
   }
 
   use(module: OipPluginModule): this {
@@ -52,69 +55,81 @@ export class ComposedRuntime {
   }
 
   async authenticate(request: InboundRequest): Promise<import("../../core/src/contracts/index.js").IdentityContext> {
-    return this.options.identity.authenticate(request);
+    return this.runtimes.identity?.authenticate(request) ?? {
+      userId: "anonymous",
+      organizationId: "default",
+      roles: [],
+    };
   }
 
   async buildContext(request: InboundRequest): Promise<ExecutionContext> {
     const identity = await this.authenticate(request);
-    return this.options.context.build(request, identity);
+    return this.runtimes.context?.build(request, identity) ?? {
+      requestId: request.metadata?.["requestId"]?.toString() ?? crypto.randomUUID(),
+      identity,
+      channel: request.channel,
+    };
   }
 
   async decide(intent: Intention, context: ExecutionContext): Promise<import("../../core/src/contracts/index.js").DecisionResult> {
-    return this.options.decision.decide(intent, context);
+    return this.runtimes.decision?.decide(intent, context) ?? {
+      type: "reject",
+      reason: "DecisionRuntime not configured.",
+    };
   }
 
   async execute(action: PlannedAction, context: ExecutionContext) {
     return this.actions.execute(action, context as unknown as import("../../core/src/types.js").RuntimeContext);
   }
 
-  get event(): EventRuntime {
-    return this.options.event;
+  get channel(): ChannelRuntime | undefined {
+    return this.runtimes.channel;
   }
 
-  get identity(): IdentityRuntime {
-    return this.options.identity;
+  get identity(): IdentityRuntime | undefined {
+    return this.runtimes.identity;
   }
 
-  get context(): ContextRuntime {
-    return this.options.context;
+  get context(): ContextRuntime | undefined {
+    return this.runtimes.context;
   }
 
-  get memory(): MemoryRuntime {
-    return this.options.memory;
+  get memory(): MemoryRuntime | undefined {
+    return this.runtimes.memory;
   }
 
-  get knowledge(): KnowledgeRuntime {
-    return this.options.knowledge;
+  get knowledge(): KnowledgeRuntime | undefined {
+    return this.runtimes.knowledge;
   }
 
-  get llm(): LlmRuntime {
-    return this.options.llm;
+  get llm(): LlmRuntime | undefined {
+    return this.runtimes.llm;
   }
 
-  get decision(): DecisionRuntime {
-    return this.options.decision;
+  get decision(): DecisionRuntime | undefined {
+    return this.runtimes.decision;
   }
 
-  get policy(): PolicyRuntime {
-    return this.options.policy;
+  get policy(): PolicyRuntime | undefined {
+    return this.runtimes.policy;
   }
 
-  get workflow(): WorkflowRuntime {
-    return this.options.workflow;
+  get workflow(): WorkflowRuntime | undefined {
+    return this.runtimes.workflow;
   }
 
-  get skill(): SkillRuntime {
-    return this.options.skill;
+  get skill(): SkillRuntime | undefined {
+    return this.runtimes.skill;
   }
 
-  get observability(): ObservabilityRuntime {
-    return this.options.observability;
+  get observability(): ObservabilityRuntime | undefined {
+    return this.runtimes.observability;
   }
 }
 
 export type {
   ActionRuntime,
+  ChannelRuntime,
   ContextRuntime,
   DecisionRuntime,
   EventRuntime,
@@ -123,6 +138,7 @@ export type {
   LlmRuntime,
   MemoryRuntime,
   ObservabilityRuntime,
+  PlannedAction,
   PolicyRuntime,
   RuntimeBuilderOptions,
   SkillRuntime,

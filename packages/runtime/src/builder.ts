@@ -1,11 +1,3 @@
-import {
-  ActionEngine,
-  CapabilityRegistry,
-  ToolRegistry,
-  Validator,
-} from "../../core/src/index.js";
-import { InMemoryAuditLog } from "../../audit-log/src/index.js";
-import { InMemoryEventBus } from "../../event-bus/src/index.js";
 import type {
   ActionRuntime,
   ChannelRuntime,
@@ -17,14 +9,76 @@ import type {
   LlmRuntime,
   MemoryRuntime,
   ObservabilityRuntime,
-  PlannedAction,
   PolicyRuntime,
   RuntimeBuilderOptions,
   SkillRuntime,
   WorkflowRuntime,
 } from "../../core/src/contracts/index.js";
+import { InMemoryIdentityRuntime } from "../../identity-runtime/src/index.js";
+import { InMemoryEventRuntime } from "../../event-runtime/src/index.js";
+import { InMemoryMemoryRuntime } from "../../memory-runtime/src/index.js";
+import { InMemoryContextRuntime } from "../../context-runtime/src/index.js";
+import { RuleBasedDecisionRuntime } from "../../decision-runtime/src/index.js";
+import { InMemoryPolicyRuntime } from "../../policy-runtime/src/index.js";
 import type { OipRuntimeOptions } from "./index.js";
 import { OipRuntime } from "./index.js";
+import { ComposedRuntime } from "./composed.js";
+
+function createDefaultChannelRuntime(): ChannelRuntime {
+  return {
+    receive: async (request) => request,
+    send: async () => Promise.resolve(),
+  };
+}
+
+function createDefaultObservabilityRuntime(): ObservabilityRuntime {
+  return {
+    trace: async <T>(_name: string, operation: () => Promise<T>): Promise<T> => {
+      return await operation();
+    },
+    log: async () => Promise.resolve(),
+  };
+}
+
+function createDefaultWorkflowRuntime(): WorkflowRuntime {
+  return {
+    start: async () => {
+      throw new Error("WorkflowRuntime not configured.");
+    },
+    signal: async () => {
+      throw new Error("WorkflowRuntime not configured.");
+    },
+    getState: async () => {
+      throw new Error("WorkflowRuntime not configured.");
+    },
+    listDefinitions: async () => [],
+  };
+}
+
+function createDefaultSkillRuntime(): SkillRuntime {
+  return {
+    invoke: async () => {
+      throw new Error("SkillRuntime not configured.");
+    },
+    list: async () => [],
+  };
+}
+
+function createDefaultKnowledgeRuntime(): KnowledgeRuntime {
+  return {
+    registerSource: async () => Promise.resolve(),
+    ingest: async () => ({ documentId: "stub", chunks: 0, status: "completed" as const }),
+    search: async () => [],
+  };
+}
+
+function createDefaultLlmRuntime(): LlmRuntime {
+  return {
+    generateText: async () => "",
+    generateJson: async <T>() => ({}) as T,
+    embed: async () => [],
+  };
+}
 
 export class OipRuntimeBuilder {
   private legacyOptions: OipRuntimeOptions = {};
@@ -105,7 +159,25 @@ export class OipRuntimeBuilder {
   }
 
   buildComposed(): ComposedRuntime {
-    return new ComposedRuntime(this.runtimes);
+    const identity = this.runtimes.identity ?? new InMemoryIdentityRuntime();
+    const event = this.runtimes.event ?? new InMemoryEventRuntime();
+    const memory = this.runtimes.memory ?? new InMemoryMemoryRuntime();
+
+    return new ComposedRuntime({
+      channel: this.runtimes.channel ?? createDefaultChannelRuntime(),
+      identity,
+      context: this.runtimes.context ?? new InMemoryContextRuntime(memory),
+      llm: this.runtimes.llm ?? createDefaultLlmRuntime(),
+      decision: this.runtimes.decision ?? new RuleBasedDecisionRuntime(),
+      policy: this.runtimes.policy ?? new InMemoryPolicyRuntime(),
+      workflow: this.runtimes.workflow ?? createDefaultWorkflowRuntime(),
+      ...(this.runtimes.action !== undefined ? { action: this.runtimes.action } : {}),
+      memory,
+      knowledge: this.runtimes.knowledge ?? createDefaultKnowledgeRuntime(),
+      event,
+      skill: this.runtimes.skill ?? createDefaultSkillRuntime(),
+      observability: this.runtimes.observability ?? createDefaultObservabilityRuntime(),
+    } as Required<RuntimeBuilderOptions>);
   }
 
   static withDefaults(options: OipRuntimeOptions = {}): OipRuntime {
@@ -113,35 +185,7 @@ export class OipRuntimeBuilder {
   }
 }
 
-import { WorkflowRegistry } from "../../workflow-engine/src/index.js";
-import { installPluginModule, type OipPluginModule } from "../../plugin-sdk/src/index.js";
-
-export class ComposedRuntime {
-  readonly capabilities = new CapabilityRegistry();
-  readonly tools = new ToolRegistry();
-  readonly workflows = new WorkflowRegistry();
-  readonly actions: ActionEngine;
-
-  constructor(private readonly runtimes: Partial<RuntimeBuilderOptions> = {}) {
-    const events = (this.runtimes.event as unknown as import("../../core/src/types.js").EventPublisher) ?? new InMemoryEventBus();
-    const audit = new InMemoryAuditLog();
-    this.actions = new ActionEngine(this.capabilities, this.tools, new Validator(), events, audit);
-  }
-
-  use(module: OipPluginModule): this {
-    installPluginModule(module, {
-      capabilities: this.capabilities,
-      tools: this.tools,
-      workflows: this.workflows,
-    });
-    return this;
-  }
-
-  async execute(action: PlannedAction, context: import("../../core/src/contracts/index.js").ExecutionContext) {
-    return this.actions.execute(action, context as unknown as import("../../core/src/types.js").RuntimeContext);
-  }
-}
-
+export { ComposedRuntime } from "./composed.js";
 export type {
   ActionRuntime,
   ChannelRuntime,
@@ -153,7 +197,6 @@ export type {
   LlmRuntime,
   MemoryRuntime,
   ObservabilityRuntime,
-  PlannedAction,
   PolicyRuntime,
   RuntimeBuilderOptions,
   SkillRuntime,
