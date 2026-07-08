@@ -1,0 +1,274 @@
+manifestVersion: "1.0.0"
+
+application:
+  id: opays-hq-demo
+  name: Opays HQ — Démonstrateur
+  description: Application de gestion d'entreprise IA pour PME africaines. Cet exemple fictif sert de référence pour structurer un Manifest OIP.
+  repository: https://github.com/opaystech-stack/opays-hq-demo.git
+
+oipCompatibility:
+  min: "0.1.0-alpha"
+  max: "0.2.0"
+  reason: Baseline validée avec OIP v0.1.0-alpha. Avant passage en production, tester avec une version stable.
+
+modules:
+  - id: customers
+    name: Gestion des clients
+    description: Création, mise à jour, recherche et suppression des fiches client.
+    version: "2.1.0"
+
+  - id: tasks
+    name: Gestion des tâches
+    description: Planification, assignation et suivi des tâches métier.
+    version: "1.5.0"
+
+  - id: reports
+    name: Rapports
+    description: Génération et export de rapports d'activité.
+    version: "1.3.0"
+
+services:
+  - id: customer-service
+    name: Customer Service
+    moduleId: customers
+    type: http
+    adapter: CustomerServiceAdapter
+    endpoints:
+      - path: /api/customers
+        method: POST
+        purpose: createCustomer
+        aiRelevant: true
+      - path: /api/customers/{id}
+        method: GET
+        purpose: getCustomer
+        aiRelevant: true
+      - path: /api/customers/{id}
+        method: PATCH
+        purpose: updateCustomer
+        aiRelevant: true
+
+  - id: task-service
+    name: Task Service
+    moduleId: tasks
+    type: http
+    adapter: TaskServiceAdapter
+    endpoints:
+      - path: /api/tasks
+        method: POST
+        purpose: createTask
+        aiRelevant: true
+      - path: /api/tasks/{id}/complete
+        method: POST
+        purpose: completeTask
+        aiRelevant: true
+
+  - id: report-service
+    name: Report Service
+    moduleId: reports
+    type: http
+    adapter: ReportServiceAdapter
+    endpoints:
+      - path: /api/reports
+        method: POST
+        purpose: generateReport
+        aiRelevant: true
+      - path: /api/reports/{id}/export
+        method: POST
+        purpose: exportReport
+        aiRelevant: true
+
+api:
+  basePath: /api/v2
+  routes:
+    - path: /customers
+      method: POST
+      description: Créer un client
+      aiRelevant: true
+    - path: /tasks
+      method: POST
+      description: Créer une tâche
+      aiRelevant: true
+    - path: /reports
+      method: POST
+      description: Générer un rapport
+      aiRelevant: true
+    - path: /health
+      method: GET
+      description: Healthcheck
+      aiRelevant: false
+
+aiEntrypoints:
+  - id: hq-chat
+    type: chat
+    description: Widget de chat intégré au tableau de bord HQ
+    channels:
+      - web
+      - mobile
+  - id: hq-voice-command
+    type: voice
+    description: Saisie vocale rapide pour la planification de tâches
+    channels:
+      - mobile
+
+componentsToReplace:
+  - id: legacy-nlp-parser
+    type: nlp-parser
+    description: Parser maison qui transforme les requêtes texte en intentions
+    migrationPhase: 2
+  - id: legacy-intent-router
+    type: intent-router
+    description: Routeur d'intentions vers les contrôleurs métier
+    migrationPhase: 2
+  - id: legacy-decision-tree
+    type: decision-tree
+    description: Arbre de décision utilisé pour les confirmations métier
+    migrationPhase: 3
+
+capabilities:
+  - id: business.customer.create
+    moduleId: customers
+    description: Créer une fiche client à partir du nom, email et téléphone
+    parameters:
+      - name: name
+        type: string
+        required: true
+        description: Nom complet du client
+      - name: email
+        type: string
+        required: true
+        description: Adresse email du client
+      - name: phone
+        type: string
+        required: false
+        description: Numéro de téléphone
+    requiredRoles:
+      - sales.manager
+    confirmationLevel: none
+    toolHandler: createCustomer
+    emits:
+      - CustomerCreated
+
+  - id: business.task.schedule
+    moduleId: tasks
+    description: Planifier une tâche avec un titre et une échéance
+    parameters:
+      - name: title
+        type: string
+        required: true
+        description: Titre de la tâche
+      - name: dueDate
+        type: string
+        required: true
+        description: Date et heure ISO 8601
+      - name: assigneeId
+        type: string
+        required: false
+        description: Identifiant de la personne assignée
+    requiredRoles:
+      - manager
+    confirmationLevel: none
+    toolHandler: scheduleTask
+    emits:
+      - TaskScheduled
+
+  - id: business.report.generate
+    moduleId: reports
+    description: Générer un rapport d'activité pour une période donnée
+    parameters:
+      - name: reportType
+        type: string
+        required: true
+        description: Type de rapport (ventes, tâches, clients)
+      - name: period
+        type: string
+        required: true
+        description: Période couverte par le rapport
+    requiredRoles:
+      - manager
+      - analyst
+    confirmationLevel: none
+    toolHandler: generateReport
+    emits:
+      - ReportGenerated
+
+adapters:
+  - id: identity
+    name: IdentityAdapter
+    description: Résout l'utilisateur, ses rôles et son workspace depuis HQ.
+  - id: business-tools
+    name: BusinessToolAdapter
+    description: Appelle les services métiers de HQ depuis les tools OIP.
+  - id: memory
+    name: MemoryAdapter
+    description: Persiste la mémoire conversationnelle dans la base HQ.
+  - id: audit
+    name: AuditAdapter
+    description: Écrit les audits OIP dans le système de logs de HQ.
+  - id: events
+    name: EventAdapter
+    description: Publie les événements OIP dans le bus métier de HQ.
+  - id: knowledge
+    name: KnowledgeAdapter
+    description: Connecte les procédures et documents métier à KnowledgeEngine.
+
+dependencies:
+  runtime:
+    - name: nodejs
+      minVersion: "20.0.0"
+      purpose: Runtime de l'application
+  data:
+    - name: postgresql
+      purpose: Persistence métier
+    - name: redis
+      purpose: Cache et sessions
+  external:
+    - name: openai
+      purpose: LLM pour la génération de plans
+      optional: false
+
+featureFlags:
+  - id: oip-shadow-mode
+    description: OIP fonctionne en parallèle sans activer les actions métier.
+    default: true
+  - id: oip-customer-create
+    description: Active la capability business.customer.create via OIP.
+    default: false
+    dependsOn:
+      - oip-shadow-mode
+  - id: oip-task-schedule
+    description: Active la capability business.task.schedule via OIP.
+    default: false
+    dependsOn:
+      - oip-shadow-mode
+  - id: oip-report-generate
+    description: Active la capability business.report.generate via OIP.
+    default: false
+    dependsOn:
+      - oip-shadow-mode
+
+migration:
+  currentPhase: manifest
+  phases:
+    - id: analysis
+      name: Analyse
+      done: true
+    - id: manifest
+      name: Manifest
+      done: true
+    - id: blueprint
+      name: Blueprint de migration
+      done: false
+    - id: shadow
+      name: Shadow Mode
+      done: false
+    - id: progressive
+      name: Migration progressive
+      done: false
+    - id: cleanup
+      name: Suppression du moteur legacy
+      done: false
+  compatibilityRules:
+    - description: Les endpoints legacy de chat restent actifs tant que le shadow mode n'est pas validé.
+      condition: featureFlag(oip-shadow-mode) == true
+    - description: Aucune action OIP ne modifie les données en écriture avant confirmation métier.
+      condition: currentPhase in [shadow, progressive, cleanup]
