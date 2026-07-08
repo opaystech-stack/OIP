@@ -1,6 +1,8 @@
 import {
   ActionEngine,
+  type AuditLogger,
   CapabilityRegistry,
+  type EventPublisher,
   ToolRegistry,
   Validator,
   type PlannedAction,
@@ -13,6 +15,7 @@ import { InMemoryEventBus } from "../../event-bus/src/index.js";
 import { KnowledgeEngine } from "../../knowledge-engine/src/index.js";
 import type { LlmAdapter } from "../../llm-adapter/src/index.js";
 import { InMemoryStore } from "../../memory/src/index.js";
+import type { MemoryStore } from "../../memory/src/index.js";
 import { DocumentService } from "../../document-service/src/index.js";
 import { MutableKnowledgeSource } from "../../knowledge-engine/src/index.js";
 import { LlmPlanner } from "../../planner/src/index.js";
@@ -26,15 +29,21 @@ export class OipRuntime {
   readonly knowledge = new KnowledgeEngine();
   readonly documentKnowledge = new MutableKnowledgeSource("documents", "Documents");
   readonly documents = new DocumentService(this.documentKnowledge);
-  readonly memory = new InMemoryStore();
+  readonly memory: MemoryStore;
   readonly observability = new InMemoryObservabilityAdapter();
-  readonly events = new InMemoryEventBus();
-  readonly audit = new InMemoryAuditLog();
-  readonly actions = new ActionEngine(this.capabilities, this.tools, new Validator(), this.events, this.audit);
-  readonly workflowEngine = new WorkflowEngine(this.workflows, this.actions);
-  readonly contextBuilder = new ContextBuilder(this.knowledge, this.memory);
+  readonly events: EventPublisher & { list?: () => unknown };
+  readonly audit: AuditLogger & { list?: () => unknown };
+  readonly actions: ActionEngine;
+  readonly workflowEngine: WorkflowEngine;
+  readonly contextBuilder: ContextBuilder;
 
-  constructor() {
+  constructor(options: OipRuntimeOptions = {}) {
+    this.memory = options.memory ?? new InMemoryStore();
+    this.events = options.events ?? new InMemoryEventBus();
+    this.audit = options.audit ?? new InMemoryAuditLog();
+    this.actions = new ActionEngine(this.capabilities, this.tools, new Validator(), this.events, this.audit);
+    this.workflowEngine = new WorkflowEngine(this.workflows, this.actions);
+    this.contextBuilder = new ContextBuilder(this.knowledge, this.memory);
     this.knowledge.register(this.documentKnowledge);
   }
 
@@ -59,4 +68,10 @@ export class OipRuntime {
   execute(plan: PlannedAction, context: RuntimeContext) {
     return this.actions.execute(plan, context);
   }
+}
+
+export interface OipRuntimeOptions {
+  readonly memory?: MemoryStore;
+  readonly events?: EventPublisher & { list?: () => unknown };
+  readonly audit?: AuditLogger & { list?: () => unknown };
 }

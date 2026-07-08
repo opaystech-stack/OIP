@@ -19,6 +19,7 @@
 - Knowledge Engine
 - Document Service with text chunking
 - Conversation Memory
+- JSON-file persistence for memory, audit and events
 - Observability Adapter with in-memory traces
 - Plugin SDK
 - OipRuntime facade
@@ -63,13 +64,14 @@ The test suite verifies:
 - confirmation blocking for sensitive capabilities
 - multi-plugin runtime with Commerce and HR
 - HTTP API health, capability discovery, chat, action execution and admin state
+- JSON-file persistence across runtime/API restarts
 
 ## Still Mocked or In-Memory
 
 - Business persistence is in-memory
-- Conversation memory is in-memory
-- Audit log is in-memory
-- Event bus is in-memory
+- Conversation memory defaults to in-memory unless `OIP_DATA_DIR` is configured
+- Audit log defaults to in-memory unless `OIP_DATA_DIR` is configured
+- Event bus defaults to in-memory unless `OIP_DATA_DIR` is configured
 - Observability traces are in-memory
 - Document parsing accepts extracted text only
 - Vector search is lexical/in-memory, not ZVec yet

@@ -116,3 +116,9 @@ OIP_LLM_BASE_URL=https://api.openai.com/v1
 OIP_LLM_API_KEY=...
 OIP_LLM_MODEL=gpt-4.1-mini
 ```
+
+Persistence locale optionnelle:
+
+```bash
+OIP_DATA_DIR=.oip-data
+```

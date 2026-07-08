@@ -2,7 +2,8 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { createLlmAdapter, loadLlmConfig } from "../../../packages/config/src/index.js";
 import type { JsonObject, RuntimeContext } from "../../../packages/core/src/index.js";
 import { ChatService } from "../../../packages/chat-service/src/index.js";
-import { OipRuntime } from "../../../packages/runtime/src/index.js";
+import type { OipRuntime } from "../../../packages/runtime/src/index.js";
+import { createRuntimeFromEnv } from "../../../packages/runtime/src/factory.js";
 import { commercePluginModule } from "../../../plugins/commerce/src/index.js";
 import { hrPluginModule } from "../../../plugins/hr/src/index.js";
 
@@ -11,7 +12,7 @@ export interface ApiServerOptions {
 }
 
 export function startApiServer(options: ApiServerOptions): Server {
-  const runtime = new OipRuntime().use(commercePluginModule).use(hrPluginModule);
+  const runtime = createRuntimeFromEnv().use(commercePluginModule).use(hrPluginModule);
   const chat = new ChatService(runtime, createLlmAdapter(loadLlmConfig()));
 
   const server = createServer(async (request, response) => {
@@ -109,17 +110,17 @@ async function routeRequest(
   }
 
   if (request.method === "GET" && request.url === "/admin/audit") {
-    sendJson(response, 200, { records: runtime.audit.list() });
+    sendJson(response, 200, { records: await readList(runtime.audit) });
     return;
   }
 
   if (request.method === "GET" && request.url === "/admin/traces") {
-    sendJson(response, 200, { traces: runtime.observability.list() });
+    sendJson(response, 200, { traces: await readList(runtime.observability) });
     return;
   }
 
   if (request.method === "GET" && request.url === "/admin/events") {
-    sendJson(response, 200, { events: runtime.events.list() });
+    sendJson(response, 200, { events: await readList(runtime.events) });
     return;
   }
 
@@ -176,4 +177,8 @@ function sendJson(response: ServerResponse, statusCode: number, payload: unknown
 
 function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+async function readList(source: { list?: () => unknown }): Promise<unknown> {
+  return source.list ? await source.list() : [];
 }

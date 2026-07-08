@@ -1,3 +1,6 @@
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   ActionEngine,
   type CapabilityDefinition,
@@ -14,6 +17,7 @@ import { ChatService } from "../packages/chat-service/src/index.js";
 import { createLlmAdapter, loadLlmConfig } from "../packages/config/src/index.js";
 import { ContextBuilder } from "../packages/context-builder/src/index.js";
 import { InMemoryEventBus } from "../packages/event-bus/src/index.js";
+import { JsonFileAuditLog, JsonFileEventBus, JsonFileMemoryStore } from "../packages/file-store/src/index.js";
 import { InMemoryKnowledgeSource, KnowledgeEngine } from "../packages/knowledge-engine/src/index.js";
 import { MockLlmAdapter, OpenAiCompatibleLlmAdapter } from "../packages/llm-adapter/src/index.js";
 import { LlmPlanner } from "../packages/planner/src/index.js";
@@ -220,7 +224,7 @@ const tests: readonly TestCase[] = [
       const result = await runtime.execute(plan, createContext(["inventory.manager"]));
 
       assertEqual(result.status, "completed");
-      assertEqual(runtime.events.list()[0]?.event.type, "InventoryUpdated");
+      assertEqual(getEventType((await readRuntimeList(runtime.events))[0]), "InventoryUpdated");
     },
   },
   {
@@ -469,10 +473,56 @@ const tests: readonly TestCase[] = [
         assertEqual(action.status, "completed");
         assertEqual(Array.isArray(audit.records), true);
         assertEqual(Array.isArray(traces.traces), true);
-        assertEqual(Array.isArray(events.events), true);
+      assertEqual(Array.isArray(events.events), true);
       } finally {
         await closeServer(server);
       }
+    },
+  },
+  {
+    name: "JSON file stores persist memory, audit and events across runtime instances",
+    run: async () => {
+      const directory = await mkdtemp(join(tmpdir(), "oip-persistence-"));
+      const memoryPath = join(directory, "memory.json");
+      const auditPath = join(directory, "audit.json");
+      const eventsPath = join(directory, "events.json");
+      const firstRuntime = new OipRuntime({
+        memory: new JsonFileMemoryStore(memoryPath),
+        audit: new JsonFileAuditLog(auditPath),
+        events: new JsonFileEventBus(eventsPath),
+      }).use(commercePluginModule);
+      const chat = new ChatService(
+        firstRuntime,
+        new MockLlmAdapter(() => ({
+          capabilityId: "commerce.inventory.add",
+          arguments: {
+            itemName: "sacs de ciment",
+            quantity: 3,
+          },
+          confidence: 0.9,
+          reason: "Persistence test.",
+        })),
+      );
+      const context = createContext(["inventory.manager"]);
+
+      await chat.handle({
+        input: "Ajoute 3 sacs de ciment au stock",
+        context,
+      });
+
+      const secondRuntime = new OipRuntime({
+        memory: new JsonFileMemoryStore(memoryPath),
+        audit: new JsonFileAuditLog(auditPath),
+        events: new JsonFileEventBus(eventsPath),
+      }).use(commercePluginModule);
+
+      const persistedMemory = await secondRuntime.memory.recent(context, 5);
+      const persistedAudit = await readRuntimeList(secondRuntime.audit);
+      const persistedEvents = await readRuntimeList(secondRuntime.events);
+
+      assertEqual(persistedMemory[0]?.input, "Ajoute 3 sacs de ciment au stock");
+      assertEqual(getObject(persistedAudit[0]).status, "completed");
+      assertEqual(getEventType(persistedEvents[0]), "InventoryUpdated");
     },
   },
 ];
@@ -534,6 +584,20 @@ function getObject(value: unknown): Record<string, unknown> {
   }
 
   return value as Record<string, unknown>;
+}
+
+async function readRuntimeList(source: { list?: () => unknown }): Promise<readonly unknown[]> {
+  const value = source.list ? await source.list() : [];
+
+  if (!Array.isArray(value)) {
+    throw new Error("Expected runtime list to return an array.");
+  }
+
+  return value;
+}
+
+function getEventType(value: unknown): unknown {
+  return getObject(getObject(value).event).type;
 }
 
 function closeServer(server: { close(callback: (error?: Error) => void): void }): Promise<void> {
