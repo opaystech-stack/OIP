@@ -25,3 +25,14 @@ export interface Capability {
   readonly sideEffects: readonly string[];
   readonly emits: readonly string[];
 }
+
+export function defineCapability(capability: Omit<Capability, "parameters" | "requiredRoles" | "confirmationLevel" | "sideEffects" | "emits"> & Partial<Pick<Capability, "parameters" | "requiredRoles" | "confirmationLevel" | "sideEffects" | "emits">>): Capability {
+  return {
+    parameters: [],
+    requiredRoles: [],
+    confirmationLevel: "none",
+    sideEffects: [],
+    emits: [],
+    ...capability,
+  };
+}
