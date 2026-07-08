@@ -1,4 +1,5 @@
 import type { JsonObject, RuntimeContext } from "../../core/src/index.js";
+import type { VectorAdapter } from "../../adapters/src/index.js";
 
 export interface KnowledgeQuery {
   readonly text: string;
@@ -23,6 +24,8 @@ export interface KnowledgeSource {
 export class KnowledgeEngine {
   private readonly sources = new Map<string, KnowledgeSource>();
 
+  constructor(private readonly vector?: VectorAdapter) {}
+
   register(source: KnowledgeSource): void {
     if (this.sources.has(source.id)) {
       throw new Error(`Knowledge source already registered: ${source.id}`);
@@ -44,6 +47,48 @@ export class KnowledgeEngine {
 
     return results
       .flat()
+      .sort((left, right) => right.score - left.score)
+      .slice(0, limit);
+  }
+
+  async vectorSearch(embedding: readonly number[], limit = 5): Promise<readonly KnowledgeResult[]> {
+    if (!this.vector) {
+      return [];
+    }
+
+    const results = await this.vector.search(embedding, limit);
+
+    return results.map((result) => ({
+      sourceId: "vector",
+      title: String(result.metadata.title ?? result.id),
+      content: String(result.metadata.content ?? ""),
+      score: result.score,
+      metadata: result.metadata,
+    }));
+  }
+
+  async hybridSearch(
+    text: string,
+    embedding: readonly number[],
+    context: RuntimeContext,
+    limit = 5,
+  ): Promise<readonly KnowledgeResult[]> {
+    const [lexical, vector] = await Promise.all([
+      this.search(text, context, limit),
+      this.vectorSearch(embedding, limit),
+    ]);
+    const merged = new Map<string, KnowledgeResult>();
+
+    for (const result of [...lexical, ...vector]) {
+      const key = `${result.sourceId}:${result.title}`;
+      const existing = merged.get(key);
+
+      if (!existing || result.score > existing.score) {
+        merged.set(key, result);
+      }
+    }
+
+    return [...merged.values()]
       .sort((left, right) => right.score - left.score)
       .slice(0, limit);
   }

@@ -23,6 +23,7 @@ import { MockLlmAdapter, OpenAiCompatibleLlmAdapter } from "../packages/llm-adap
 import { LlmPlanner } from "../packages/planner/src/index.js";
 import { installPluginModule } from "../packages/plugin-sdk/src/index.js";
 import { OipRuntime } from "../packages/runtime/src/index.js";
+import { InMemoryVectorAdapter } from "../packages/vector-store/src/index.js";
 import { WorkflowEngine, WorkflowRegistry } from "../packages/workflow-engine/src/index.js";
 import { commercePluginModule } from "../plugins/commerce/src/index.js";
 import { getEmployeesSnapshot, hrPluginModule } from "../plugins/hr/src/index.js";
@@ -523,6 +524,69 @@ const tests: readonly TestCase[] = [
       assertEqual(persistedMemory[0]?.input, "Ajoute 3 sacs de ciment au stock");
       assertEqual(getObject(persistedAudit[0]).status, "completed");
       assertEqual(getEventType(persistedEvents[0]), "InventoryUpdated");
+    },
+  },
+  {
+    name: "Vector adapter supports semantic-like nearest neighbor search",
+    run: async () => {
+      const vector = new InMemoryVectorAdapter();
+      const runtime = new OipRuntime({ vector }).use(commercePluginModule);
+
+      await vector.upsert([
+        {
+          id: "doc-cement",
+          embedding: [1, 0, 0],
+          metadata: {
+            title: "Stock ciment",
+            content: "Procedure de gestion du ciment.",
+          },
+        },
+        {
+          id: "doc-hr",
+          embedding: [0, 1, 0],
+          metadata: {
+            title: "Employes",
+            content: "Procedure RH.",
+          },
+        },
+      ]);
+
+      const results = await runtime.knowledge.vectorSearch([0.9, 0.1, 0], 1);
+
+      assertEqual(results[0]?.metadata.title, "Stock ciment");
+    },
+  },
+  {
+    name: "Knowledge engine hybrid search merges lexical and vector results",
+    run: async () => {
+      const vector = new InMemoryVectorAdapter();
+      const runtime = new OipRuntime({ vector }).use(commercePluginModule);
+
+      runtime.documents.ingest({
+        title: "Guide inventaire",
+        text: "Le stock savon se gere dans Commerce.",
+      });
+      await vector.upsert([
+        {
+          id: "doc-cement-vector",
+          embedding: [1, 0],
+          metadata: {
+            title: "Guide ciment",
+            content: "Le ciment est proche de la requete vectorielle.",
+          },
+        },
+      ]);
+
+      const results = await runtime.knowledge.hybridSearch(
+        "stock savon",
+        [1, 0],
+        createContext(["inventory.manager"]),
+        3,
+      );
+      const titles = results.map((result) => result.title);
+
+      assertEqual(titles.includes("Guide inventaire #1"), true);
+      assertEqual(titles.includes("Guide ciment"), true);
     },
   },
 ];

@@ -9,6 +9,7 @@ import {
   type RuntimeContext,
 } from "../../core/src/index.js";
 import { InMemoryObservabilityAdapter } from "../../adapters/src/index.js";
+import type { VectorAdapter } from "../../adapters/src/index.js";
 import { InMemoryAuditLog } from "../../audit-log/src/index.js";
 import { ContextBuilder, type BuiltContext } from "../../context-builder/src/index.js";
 import { InMemoryEventBus } from "../../event-bus/src/index.js";
@@ -26,7 +27,7 @@ export class OipRuntime {
   readonly capabilities = new CapabilityRegistry();
   readonly tools = new ToolRegistry();
   readonly workflows = new WorkflowRegistry();
-  readonly knowledge = new KnowledgeEngine();
+  readonly knowledge: KnowledgeEngine;
   readonly documentKnowledge = new MutableKnowledgeSource("documents", "Documents");
   readonly documents = new DocumentService(this.documentKnowledge);
   readonly memory: MemoryStore;
@@ -38,6 +39,7 @@ export class OipRuntime {
   readonly contextBuilder: ContextBuilder;
 
   constructor(options: OipRuntimeOptions = {}) {
+    this.knowledge = new KnowledgeEngine(options.vector);
     this.memory = options.memory ?? new InMemoryStore();
     this.events = options.events ?? new InMemoryEventBus();
     this.audit = options.audit ?? new InMemoryAuditLog();
@@ -74,4 +76,5 @@ export interface OipRuntimeOptions {
   readonly memory?: MemoryStore;
   readonly events?: EventPublisher & { list?: () => unknown };
   readonly audit?: AuditLogger & { list?: () => unknown };
+  readonly vector?: VectorAdapter;
 }

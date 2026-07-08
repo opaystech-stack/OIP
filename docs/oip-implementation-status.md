@@ -18,6 +18,9 @@
 - Context Builder
 - Knowledge Engine
 - Document Service with text chunking
+- Vector Adapter contract
+- In-memory vector adapter with cosine similarity
+- Hybrid lexical/vector search
 - Conversation Memory
 - JSON-file persistence for memory, audit and events
 - Observability Adapter with in-memory traces
@@ -61,6 +64,8 @@ The test suite verifies:
 - chat end-to-end flow
 - default mock LLM configuration
 - document ingestion and search
+- vector nearest-neighbor search
+- hybrid lexical/vector search
 - confirmation blocking for sensitive capabilities
 - multi-plugin runtime with Commerce and HR
 - HTTP API health, capability discovery, chat, action execution and admin state
@@ -74,7 +79,7 @@ The test suite verifies:
 - Event bus defaults to in-memory unless `OIP_DATA_DIR` is configured
 - Observability traces are in-memory
 - Document parsing accepts extracted text only
-- Vector search is lexical/in-memory, not ZVec yet
+- Vector search has an in-memory adapter; ZVec is not integrated yet
 - LLM provider defaults to mock unless env vars are configured
 
 ## Next Integrations
