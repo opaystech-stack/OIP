@@ -23,7 +23,7 @@ import type { MemoryStore } from "../../memory/src/index.js";
 import { DocumentService } from "../../document-service/src/index.js";
 import { MutableKnowledgeSource } from "../../knowledge-engine/src/index.js";
 import type { DocumentAdapter, OcrAdapter } from "../../adapters/src/index.js";
-import { LlmPlanner } from "../../planner/src/index.js";
+import { LlmBasedDecisionRuntime, type Planner } from "../../decision-runtime/src/llm.js";
 import { installPluginModule, type OipPluginModule } from "../../plugin-sdk/src/index.js";
 import { WorkflowEngine, WorkflowRegistry } from "../../workflow-engine/src/index.js";
 import { InMemoryAutomationAdapter, InMemoryMcpAdapter } from "../../integration-adapters/src/index.js";
@@ -77,8 +77,8 @@ export class OipRuntime {
     return this;
   }
 
-  createPlanner(llm: LlmAdapter): LlmPlanner {
-    return new LlmPlanner(llm, this.capabilities.list());
+  createPlanner(llm: LlmAdapter): Planner {
+    return new LlmBasedDecisionRuntime(llm, this.capabilities.list());
   }
 
   buildContext(input: string, context: RuntimeContext): Promise<BuiltContext> {
