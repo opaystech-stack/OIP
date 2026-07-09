@@ -64,25 +64,27 @@ OIP expose des **opérations** stables, pas des **Runtimes** concrets. Les Runti
 
 ## État
 
-Proposed. Soumis à l'API Readiness Program. Ne sera implémenté qu'après un verdict **READY** de l'AR-002.
+Accepted. Validé par l'API Readiness Review AR-002. L'implémentation de l'API publique est autorisée.
 
 ## Programme de maturation
 
-L'ADR-009 est maintenant le cœur de l'**API Readiness Program** défini dans `docs/oip-api-readiness-program.md`. Six workstreams doivent être complétés avant l'implémentation :
+L'ADR-009 a été le cœur de l'**API Readiness Program** défini dans `docs/oip-api-readiness-program.md`. Les six workstreams suivants ont été complétés et ont conduit au verdict READY de l'AR-002 :
 
-1. Types publics (`docs/oip-runtime-api-public-types.md`).
-2. Clarification des opérations publiques (`docs/oip-runtime-api-contract.md` mis à jour).
-3. Stratégie de versionnement et dépréciation (`docs/oip-runtime-api-versioning.md`).
-4. Modèle de sécurité (`docs/oip-runtime-api-security.md`).
-5. Gouvernance du catalogue (`docs/oip-runtime-api-governance.md`).
-6. Exemples par transport (`docs/oip-runtime-api-examples.md`).
+1. Types publics — `docs/oip-runtime-api-public-types.md`.
+2. Contrat officiel des opérations — `docs/oip-runtime-api-contract.md`.
+3. Stratégie de versionnement — `docs/oip-runtime-api-versioning.md`.
+4. Modèle de sécurité — `docs/oip-runtime-api-security.md`.
+5. Gouvernance du catalogue — `docs/oip-runtime-api-governance.md`.
+6. Exemples par transport — `docs/oip-runtime-api-examples.md`.
 
-La revue finale AR-002 émettra le verdict `READY` ou `NOT READY`.
+L'implémentation de l'API publique peut désormais commencer.
 
-## Conséquences du verdict
+## Conséquences du verdict READY
 
-- **READY** : l'ADR-009 passe à `Accepted` ; l'implémentation de l'API publique est lancée dans OIP ; le blocage de MB-001 dans Opays-HQ pourra être levé.
-- **NOT READY** : nouvelle itération du programme ; Opays-HQ reste bloqué sur MB-001 ; aucune implémentation.
+- L'ADR-009 est officiellement **Accepted**.
+- L'implémentation de l'API publique est autorisée dans OIP.
+- Le plan d'implémentation est `docs/oip-runtime-api-implementation-plan.md`.
+- Le blocage de MB-001 dans Opays-HQ sera levé dès que l'API HTTP, le SDK public, la Validation Suite et la documentation de mise en œuvre seront disponibles.
 
 ## Références
 

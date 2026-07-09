@@ -202,18 +202,32 @@ Le gabarit de la revue est disponible dans `docs/architecture-reviews/ar-002-api
 
 ---
 
-## 6. Blocage d'Opays-HQ
+Le programme est maintenant officiellement la dernière étape avant l'implémentation de l'API publique. La revue AR-002 a conclu **READY** ; l'implémentation est autorisée.
 
-Tant que le programme n'a pas atteint le verdict `READY` :
+### État actuel du programme
 
-- **Opays-HQ reste officiellement bloqué sur MB-001**.
-- Aucun développement ne reprend côté application.
-- Toute l'attention est concentrée sur la maturation du contrat public d'OIP.
+- WS-1 ✅ — Types publics officiels produits.
+- WS-2 ✅ — Contrat officiel des opérations publiques produit.
+- WS-3 ✅ — Stratégie officielle de versionnement produite.
+- WS-4 ✅ — Modèle officiel de sécurité produit.
+- WS-5 ✅ — Gouvernance officielle du catalogue produite.
+- WS-6 ✅ — Exemples officiels par transport produits.
+- AR-002 ✅ — Verdict **READY** émis.
+
+### Prochaine étape
+
+L'implémentation de l'API publique dans OIP selon `docs/oip-runtime-api-implementation-plan.md`.
 
 Lorsque le verdict `READY` sera prononcé :
 
 1. L'implémentation de l'API publique sera lancée dans OIP.
 2. Puis seulement, le blocage de MB-001 sera levé dans Opays-HQ.
+
+## 6. Blocage d'Opays-HQ
+
+Le verdict READY a été prononcé le 2026-07-09. L'implémentation de l'API publique dans OIP est autorisée. **Opays-HQ reste néanmoins bloqué sur MB-001 jusqu'à ce que l'API publique soit effectivement implémentée, testée, versionnée et documentée.**
+
+Les conditions de déblocage exactes sont définies dans `docs/architecture-reviews/ar-002-api-readiness-review.md`, section 9.
 
 ---
 

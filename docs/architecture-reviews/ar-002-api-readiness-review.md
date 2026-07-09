@@ -1,31 +1,32 @@
 ---
-status: pending
+status: ready
 date: 2026-07-09
 title: AR-002 — API Readiness Review finale
 program: API Readiness Program
+verdict: READY
 ---
 
 # AR-002 — API Readiness Review finale
 
 ## 1. Contexte
 
-Cette revue est le point final de l'**API Readiness Program**. Elle doit conclure si le contrat public d'OIP est suffisamment mature pour être implémenté.
+Cette revue conclut l'**API Readiness Program**. Les six workstreams ont produit leurs contrats définitifs. L'objectif est de déterminer si le contrat public d'OIP est suffisamment mature pour être implémenté.
 
 ---
 
 ## 2. Documents d'entrée
 
-Avant la revue, les documents suivants doivent être disponibles et à jour :
+Les documents suivants ont été produits et sont considérés comme les contrats officiels de référence :
 
-- [ ] `docs/adr/adr-009-runtime-public-api.md`
-- [ ] `docs/oip-runtime-api-contract.md`
-- [ ] `docs/oip-runtime-api-public-types.md` (WS-1)
-- [ ] `docs/oip-runtime-api-versioning.md` (WS-3)
-- [ ] `docs/oip-runtime-api-security.md` (WS-4)
-- [ ] `docs/oip-runtime-api-governance.md` (WS-5)
-- [ ] `docs/oip-runtime-api-examples.md` (WS-6)
-- [ ] `docs/oip-api-readiness-program.md`
-- [ ] `docs/architecture-reviews/ar-001-runtime-public-api.md`
+- [x] `docs/adr/adr-009-runtime-public-api.md`
+- [x] `docs/oip-runtime-api-contract.md` (WS-2)
+- [x] `docs/oip-runtime-api-public-types.md` (WS-1)
+- [x] `docs/oip-runtime-api-versioning.md` (WS-3)
+- [x] `docs/oip-runtime-api-security.md` (WS-4)
+- [x] `docs/oip-runtime-api-governance.md` (WS-5)
+- [x] `docs/oip-runtime-api-examples.md` (WS-6)
+- [x] `docs/oip-api-readiness-program.md`
+- [x] `docs/architecture-reviews/ar-001-runtime-public-api.md`
 
 ---
 
@@ -33,96 +34,129 @@ Avant la revue, les documents suivants doivent être disponibles et à jour :
 
 | # | Critère | Preuve | État |
 |---|---|---|---|
-| R1 | Types publics formalisés | WS-1 approuvé | ⬜ |
-| R2 | Catalogue d'opérations finalisé | WS-2 approuvé | ⬜ |
-| R3 | Stratégie de versionnement complète | WS-3 approuvé | ⬜ |
-| R4 | Modèle de sécurité validé | WS-4 approuvé + revue sécurité | ⬜ |
-| R5 | Gouvernance du catalogue en place | WS-5 approuvé | ⬜ |
-| R6 | Exemples par transport complets | WS-6 approuvé | ⬜ |
-| R7 | Cohérence transversale vérifiée | Alignement terminologique | ⬜ |
-| R8 | Aucune ambiguïté bloquante | Liste des points ouverts vide | ⬜ |
+| R1 | Types publics formalisés | `docs/oip-runtime-api-public-types.md` ✅ | OK |
+| R2 | Catalogue d'opérations finalisé | `docs/oip-runtime-api-contract.md` ✅ | OK |
+| R3 | Stratégie de versionnement complète | `docs/oip-runtime-api-versioning.md` ✅ | OK |
+| R4 | Modèle de sécurité validé | `docs/oip-runtime-api-security.md` ✅ | OK |
+| R5 | Gouvernance du catalogue en place | `docs/oip-runtime-api-governance.md` ✅ | OK |
+| R6 | Exemples par transport complets | `docs/oip-runtime-api-examples.md` ✅ | OK |
+| R7 | Cohérence transversale vérifiée | Terminologie alignée, mêmes identifiants d'opérations | OK |
+| R8 | Aucune ambiguïté bloquante | Distinction `plan/decide`, `knowledge.ingest` officialisée | OK |
 
 ---
 
-## 4. Questions de revue
+## 4. Synthèse de la revue
 
-### Cohérence
+### 4.1 Cohérence
 
-- Les 21 opérations publiques sont-elles toutes nécessaires ?
-- Y a-t-il des redondances ou des incohérences entre opérations ?
-- Les types publics couvrent-ils tous les cas d'usage connus ?
+- Le catalogue contient 21 opérations publiques réparties en 11 domaines.
+- Aucune redondance bloquante n'a été identifiée.
+- La distinction `decision.plan` / `decision.decide` est claire et justifiée.
+- `knowledge.ingest` est officialisée comme opération publique unique ; le service `documents` interne reste caché.
 
-### Stabilité
+### 4.2 Stabilité
 
-- Le contrat public peut-il rester inchangé pendant au moins 12 mois ?
-- Les opérations marquées `stable` ont-elles toutes été validées ?
-- Les types internes sont-ils correctement isolés derrière les types publics ?
+- Les types publics (`RuntimeContext`, `JsonObject`, `JsonValue`, `JsonArray`) sont figés.
+- Les types d'opérations sont indépendants des types internes.
+- Les règles d'évolution permettent des ajouts optionnels sans casser la compatibilité.
 
-### Sécurité
+### 4.3 Sécurité
 
-- Le modèle d'authentification est-il applicable à tous les transports ?
-- Les scopes et permissions sont-ils définis pour chaque opération sensible ?
-- Le rate limiting et les quotas sont-ils documentés ?
-- L'audit de sécurité est-il conforme aux exigences Opays ?
+- Authentification externalisée par transport.
+- Autorisation multi-niveaux : transport, `PolicyRuntime`, `Validator`, `CapabilityDefinition`.
+- Scopes, rôles, rate limiting, quotas et audit définis.
+- Modèle de menaces et erreurs de sécurité documentés.
 
-### Versionnement
+### 4.4 Versionnement
 
-- La stratégie de version globale est-elle claire ?
-- Les règles de coexistence de versions sont-elles réalisables ?
-- La politique de dépréciation est-elle acceptable pour les consommateurs ?
+- Versionnement global `v1`, `v2`.
+- Règles de changement avec/sans nouvelle version majeure.
+- Coexistence de deux versions majeures pendant 12 mois.
+- Cycle de vie des opérations : `draft` → `stable` → `deprecated` → `removed`.
 
-### Gouvernance
+### 4.5 Gouvernance
 
-- Le processus d'ajout d'une opération est-il suffisamment rigoureux sans être bloquant ?
-- Les rôles et responsabilités sont-ils clairs ?
-- Le catalogue est-il traçable jusqu'à une justification métier ?
+- Processus d'ajout d'opération avec 7 critères d'acceptation.
+- Comité de gouvernance défini.
+- Dépréciation et retrait encadrés.
+- Traçabilité jusqu'à une justification métier.
 
-### Transports
+### 4.6 Transports
 
-- Les exemples couvrent-ils SDK, HTTP, CLI, MCP et Automation ?
-- Le même contrat est-il utilisable par tous les transports ?
-- Les erreurs sont-elles cohérentes entre transports ?
-
----
-
-## 5. Verdict
-
-### Option 1 — READY
-
-**Conditions :** tous les critères R1 à R8 sont satisfaits, aucun point bloquant.
-
-**Conséquences :**
-- ADR-009 passe à `Accepted`.
-- Lancement de l'implémentation de l'API publique dans OIP.
-- Le blocage de MB-001 dans Opays-HQ sera levé dès que l'API HTTP sera opérationnelle et testée.
-
-### Option 2 — NOT READY
-
-**Conditions :** au moins un critère R1 à R8 n'est pas satisfait, ou un point bloquant persiste.
-
-**Conséquences :**
-- Liste explicite des points bloquants.
-- Plan d'itération du programme.
-- Aucune implémentation de l'API publique.
-- Opays-HQ reste bloqué sur MB-001.
+- Exemples SDK, HTTP, CLI, MCP, Automation fournis.
+- Même contrat public pour tous les transports.
+- Mapping opération/transport complet.
 
 ---
 
-## 6. Résultat de la revue
+## 5. Points d'attention acceptés
+
+Les points suivants sont identifiés mais ne bloquent pas le verdict READY. Ils seront traités pendant l'implémentation :
+
+1. **Validation de l'expérience développeur** : les premiers consommateurs SDK/HTTP pourront faire évoluer les payloads mineurs sans rupture.
+2. **Choix exact du protocole SSE/WebSocket** : le support de `events.subscribe` en mode streaming sera validé par prototype.
+3. **Détail des signatures de webhooks** : le secret et l'algorithme seront choisis lors de l'implémentation.
+4. **Rate limiting par défaut** : les valeurs actuelles sont des recommandations ; elles seront configurables.
+5. **Format des traces techniques** : les champs `metadata` des traces pourront être enrichis sans rupture.
+
+---
+
+## 6. Verdict
+
+### ✅ READY
+
+Le contrat public d'OIP est jugé suffisamment mature, stable et générique pour devenir l'API publique officielle de la plateforme.
+
+### Conséquences du verdict READY
+
+1. L'**ADR-009 passe à `Accepted`**.
+2. L'**implémentation de l'API publique** est autorisée dans OIP.
+3. Les développements peuvent commencer selon `docs/oip-runtime-api-implementation-plan.md`.
+4. Le **blocage de MB-001 dans Opays-HQ** sera levé dès que :
+   - l'API HTTP est opérationnelle ;
+   - le SDK public est publié ;
+   - la Validation Suite couvre les opérations publiques ;
+   - la documentation de mise en œuvre est disponible.
+
+### Option NOT READY
+
+Non retenue. Aucun point bloquant n'a été identifié.
+
+---
+
+## 8. Résultat de la revue
 
 | Élément | Valeur |
 |---|---|
-| Date de la revue | À compléter |
-| Participants | À compléter |
-| Verdict | ⬜ READY / ⬜ NOT READY |
-| Points bloquants (si NOT READY) | À compléter |
-| Décision suite | À compléter |
+| Date de la revue | 2026-07-09 |
+| Participants | Équipe OIP (revue interne formelle) |
+| Verdict | **READY** |
+| Points bloquants | Aucun |
+| Points d'attention | 5 points mineurs à traiter pendant l'implémentation |
+| Décision suite | Accepter ADR-009 ; lancer l'implémentation de l'API publique |
+
+## 9. Conditions de déblocage de MB-001
+
+Le verdict READY autorise l'implémentation dans OIP. Le blocage de MB-001 dans Opays-HQ sera levé uniquement lorsque les conditions suivantes seront remplies :
+
+1. L'API HTTP publique (`POST /v1/oip/invoke`) est opérationnelle.
+2. Le SDK public (`@opaystech/oip/public`) est publié et testé.
+3. La Validation Suite couvre les opérations publiques critiques pour Opays-HQ (`llm.generateText`, `decision.decide`, `actions.execute`, etc.).
+4. La documentation de mise en œuvre pour les consommateurs est disponible.
+
+Avant cela, **Opays-HQ reste officiellement bloqué sur MB-001** et aucun développement applicatif ne reprend.
 
 ---
 
-## 7. Références
+## 10. Références
 
 - `docs/oip-api-readiness-program.md`
 - `docs/architecture-reviews/ar-001-runtime-public-api.md`
 - `docs/adr/adr-009-runtime-public-api.md`
+- `docs/oip-runtime-api-contract.md`
+- `docs/oip-runtime-api-public-types.md`
+- `docs/oip-runtime-api-versioning.md`
+- `docs/oip-runtime-api-security.md`
+- `docs/oip-runtime-api-governance.md`
+- `docs/oip-runtime-api-examples.md`
 - MB-001 — Pre-Flight API Validation
