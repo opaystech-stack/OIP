@@ -82,11 +82,11 @@ export interface LlmGenerateTextPayload {
 
 export interface LlmGenerateTextResult {
   readonly text: string;
-  readonly model?: string;
+  readonly model?: string | undefined;
   readonly usage?: {
     readonly promptTokens: number;
     readonly completionTokens: number;
-  };
+  } | undefined;
 }
 
 export type PublicOperation =

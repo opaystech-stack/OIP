@@ -14,7 +14,6 @@ import type { OipRuntime } from "../../runtime/src/index.js";
 export interface PublicApiDependencies {
   readonly runtime: OipRuntime;
   readonly llm: LlmAdapter;
-  readonly version?: string;
 }
 
 export class OipPublicApi {
@@ -31,7 +30,7 @@ export class OipPublicApi {
     request: OipPublicRequest<JsonObject>,
   ): Promise<OipPublicResponse<TResult>> {
     const start = Date.now();
-    const version = request.timeoutMs ? this.version : this.version;
+    const version = this.version;
 
     try {
       switch (request.operation) {
@@ -68,17 +67,17 @@ export class OipPublicApi {
   }
 
   private async handleGenerateText(payload: LlmGenerateTextPayload): Promise<LlmGenerateTextResult> {
-    const response = await this.llm.generateJson({
+    const response = await this.llm.generateText({
       messages: payload.messages,
-      schemaName: "oip.text.v1",
-      temperature: payload.temperature ?? undefined,
+      temperature: payload.temperature,
+      maxTokens: payload.maxTokens,
     });
 
     return {
-      text: String(response.content ?? response.text ?? ""),
-      model: typeof response.model === "string" ? response.model : undefined,
-      usage: isUsage(response.usage) ? response.usage : undefined,
-    } as LlmGenerateTextResult;
+      text: response.text,
+      model: response.model,
+      usage: response.usage,
+    };
   }
 
   private wrap<TResult>(
@@ -129,7 +128,7 @@ function isUsage(value: unknown): value is { promptTokens: number; completionTok
 
 export function buildRuntimeContextFromAuth(auth: {
   requestId?: string;
-  channel?: string;
+  channel?: RuntimeContext["channel"];
   userId: string;
   organizationId: string;
   workspaceId?: string;

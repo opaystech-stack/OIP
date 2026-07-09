@@ -1,5 +1,5 @@
 import type { JsonObject } from "../../core/src/index.js";
-import type { LlmAdapter, LlmJsonRequest } from "./index.js";
+import type { LlmAdapter, LlmJsonRequest, LlmTextRequest, LlmTextResult } from "./index.js";
 
 export interface OpenAiCompatibleConfig {
   readonly baseUrl: string;
@@ -27,6 +27,35 @@ export class OpenAiCompatibleLlmAdapter implements LlmAdapter {
 
   constructor(private readonly config: OpenAiCompatibleConfig) {
     this.fetchImpl = config.fetch ?? defaultFetch;
+  }
+
+  async generateText(request: LlmTextRequest): Promise<LlmTextResult> {
+    const response = await this.fetchImpl(`${trimTrailingSlash(this.config.baseUrl)}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${this.config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.config.model,
+        temperature: request.temperature ?? 0,
+        max_tokens: request.maxTokens,
+        messages: request.messages,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`LLM request failed with status ${response.status}: ${await response.text()}`);
+    }
+
+    const payload = await response.json();
+    const content = extractContent(payload);
+
+    return {
+      text: content,
+      model: typeof (payload as JsonObject).model === "string" ? ((payload as JsonObject).model as string) : undefined,
+      usage: extractUsage(payload as JsonObject),
+    };
   }
 
   async generateJson(request: LlmJsonRequest): Promise<JsonObject> {
@@ -109,4 +138,23 @@ function isJsonObject(value: unknown): value is JsonObject {
 
 function trimTrailingSlash(value: string): string {
   return value.endsWith("/") ? value.slice(0, -1) : value;
+}
+
+function extractUsage(payload: JsonObject): LlmTextResult["usage"] {
+  const usage = payload.usage;
+
+  if (
+    typeof usage === "object" &&
+    usage !== null &&
+    !Array.isArray(usage) &&
+    typeof (usage as JsonObject).promptTokens === "number" &&
+    typeof (usage as JsonObject).completionTokens === "number"
+  ) {
+    return {
+      promptTokens: Number((usage as JsonObject).promptTokens),
+      completionTokens: Number((usage as JsonObject).completionTokens),
+    };
+  }
+
+  return undefined;
 }

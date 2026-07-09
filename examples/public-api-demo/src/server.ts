@@ -69,27 +69,9 @@ async function routeRequest(
       return;
     }
 
-    const invokeRequest: OipPublicRequest = {
-      requestId: body.requestId,
-      operation: body.operation,
-      payload: body.payload as Record<string, JsonValue>,
-    } as OipPublicRequest;
-
-    if (typeof body.timeoutMs === "number") {
-      (invokeRequest as OipPublicRequest & { timeoutMs: number }).timeoutMs = body.timeoutMs;
-    }
-
-    if (typeof body.correlationId === "string") {
-      (invokeRequest as OipPublicRequest & { correlationId: string }).correlationId = body.correlationId;
-    }
-
-    if (isRuntimeContext(body.context)) {
-      const context = body.context as RuntimeContext;
-      (invokeRequest as OipPublicRequest & { context: RuntimeContext }).context = context;
-    }
-
+    const invokeRequest = buildInvokeRequest(body);
     const result = await api.invoke(invokeRequest);
-    const statusCode = result.status === "completed" ? 200 : result.status === "pending" ? 202 : 400;
+    const statusCode = mapStatusToHttp(result.status);
     sendJson(response, statusCode, result);
     return;
   }
@@ -106,6 +88,43 @@ async function routeRequest(
     },
     metadata: { durationMs: 0, version },
   } as OipPublicResponse);
+}
+
+function mapStatusToHttp(status: OipPublicResponse["status"]): number {
+  switch (status) {
+    case "completed":
+      return 200;
+    case "pending":
+      return 202;
+    case "rejected":
+      return 403;
+    case "error":
+    default:
+      return 400;
+  }
+}
+
+function buildInvokeRequest(body: Record<string, unknown> & { requestId: string; operation: string; payload: Record<string, unknown> }): OipPublicRequest {
+  const invokeRequest: OipPublicRequest = {
+    requestId: body.requestId,
+    operation: body.operation,
+    payload: body.payload as Record<string, JsonValue>,
+  } as OipPublicRequest;
+
+  if (typeof body.timeoutMs === "number") {
+    (invokeRequest as OipPublicRequest & { timeoutMs: number }).timeoutMs = body.timeoutMs;
+  }
+
+  if (typeof body.correlationId === "string") {
+    (invokeRequest as OipPublicRequest & { correlationId: string }).correlationId = body.correlationId;
+  }
+
+  if (isRuntimeContext(body.context)) {
+    const context = body.context as RuntimeContext;
+    (invokeRequest as OipPublicRequest & { context: RuntimeContext }).context = context;
+  }
+
+  return invokeRequest;
 }
 
 function isValidInvokeRequest(body: unknown): body is Record<string, unknown> & {

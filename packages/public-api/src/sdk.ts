@@ -12,6 +12,7 @@ export interface OipPublicClientOptions {
   readonly runtimeContext: RuntimeContext;
   readonly api?: OipPublicApi;
   readonly baseUrl?: string;
+  readonly apiKey?: string;
 }
 
 export class OipPublicClient {
@@ -24,6 +25,7 @@ export class OipPublicClient {
     this.context = options.runtimeContext;
     this.api = options.api;
     this.baseUrl = options.baseUrl;
+    this.apiKey = options.apiKey;
   }
 
   static create(options: OipPublicClientOptions): OipPublicClient {
@@ -64,12 +66,18 @@ export class OipPublicClient {
   }
 
   private async invokeHttp<TResult>(request: OipPublicRequest): Promise<OipPublicResponse<TResult>> {
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+      "x-oip-api-version": "v1",
+    };
+
+    if (this.apiKey) {
+      headers["authorization"] = `Bearer ${this.apiKey}`;
+    }
+
     const response = await fetch(`${this.baseUrl}/v1/oip/invoke`, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-oip-api-version": "v1",
-      },
+      headers,
       body: JSON.stringify(request),
     });
 
