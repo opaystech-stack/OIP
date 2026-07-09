@@ -69,8 +69,10 @@ Voir `docs/oip-migration-state.md` pour la définition officielle des états.
 | Artefacts validés | Discovery terminé, Manifest v1.0.0 validé, Migration Backlog construit et validé |
 | Prochaine étape autorisée | **Migration Blueprint** |
 | Étapes déjà franchies | Discovery ✅, Manifest Draft ✅, Manifest Architecture Review ✅, Manifest Approved ✅, Migration Backlog ✅ |
-
+>
 > **Important** : il est interdit de recommencer un Discovery ou une revalidation du Manifest pour Opays-HQ sans justification métier majeure. Le cycle d'exécution de cette application part de son état actuel.
+>
+> **Blocage actuel** : MB-001 est bloqué car l'API publique actuelle d'OIP ne permet pas à une application externe d'utiliser directement le LLM Runtime en Shadow Mode. Une étude architecturale est en cours dans `docs/oip-runtime-api-*.md` pour définir l'API publique officielle. Opays-HQ reste bloqué jusqu'à la validation de cette API et son implémentation.
 
 ---
 
@@ -89,3 +91,4 @@ Voir `docs/oip-migration-state.md` pour la définition officielle des états.
 - `docs/oip-migration-backlog-standard.md`
 - `docs/oip-three-pillars-architecture.md`
 - `docs/oip-roadmap-discovery-generator.md`
+- `docs/oip-runtime-api-contract.md`
