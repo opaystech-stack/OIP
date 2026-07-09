@@ -64,11 +64,25 @@ OIP expose des **opérations** stables, pas des **Runtimes** concrets. Les Runti
 
 ## État
 
-Proposed. À valider par revue d'architecture avant implémentation.
+Proposed. Soumis à l'API Readiness Program. Ne sera implémenté qu'après un verdict **READY** de l'AR-002.
 
-## Critères d'acceptation
+## Programme de maturation
 
-Voir `docs/oip-runtime-api-validation-criteria.md`.
+L'ADR-009 est maintenant le cœur de l'**API Readiness Program** défini dans `docs/oip-api-readiness-program.md`. Six workstreams doivent être complétés avant l'implémentation :
+
+1. Types publics (`docs/oip-runtime-api-public-types.md`).
+2. Clarification des opérations publiques (`docs/oip-runtime-api-contract.md` mis à jour).
+3. Stratégie de versionnement et dépréciation (`docs/oip-runtime-api-versioning.md`).
+4. Modèle de sécurité (`docs/oip-runtime-api-security.md`).
+5. Gouvernance du catalogue (`docs/oip-runtime-api-governance.md`).
+6. Exemples par transport (`docs/oip-runtime-api-examples.md`).
+
+La revue finale AR-002 émettra le verdict `READY` ou `NOT READY`.
+
+## Conséquences du verdict
+
+- **READY** : l'ADR-009 passe à `Accepted` ; l'implémentation de l'API publique est lancée dans OIP ; le blocage de MB-001 dans Opays-HQ pourra être levé.
+- **NOT READY** : nouvelle itération du programme ; Opays-HQ reste bloqué sur MB-001 ; aucune implémentation.
 
 ## Références
 
@@ -78,4 +92,6 @@ Voir `docs/oip-runtime-api-validation-criteria.md`.
 - `docs/oip-runtime-api-implementation-plan.md`
 - `docs/oip-runtime-api-risk-analysis.md`
 - `docs/oip-runtime-api-validation-criteria.md`
+- `docs/oip-api-readiness-program.md`
+- `docs/architecture-reviews/ar-002-api-readiness-review.md`
 - MB-001 — Pre-Flight API Validation

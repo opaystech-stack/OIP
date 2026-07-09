@@ -81,6 +81,7 @@ Voir `docs/oip-migration-state.md` pour la définition officielle des états.
 - Ce document est mis à jour chaque fois qu'une application change d'état.
 - L'évolution d'un état doit être justifiée par un artefact validé.
 - Aucune application ne peut sauter une étape sans ADR dédié.
+- **Opays-HQ est actuellement bloqué sur MB-001 dans le cadre de l'API Readiness Program. Aucun développement applicatif ne reprendra avant le verdict READY de l'AR-002.**
 
 ---
 
@@ -92,3 +93,5 @@ Voir `docs/oip-migration-state.md` pour la définition officielle des états.
 - `docs/oip-three-pillars-architecture.md`
 - `docs/oip-roadmap-discovery-generator.md`
 - `docs/oip-runtime-api-contract.md`
+- `docs/oip-api-readiness-program.md`
+- `docs/architecture-reviews/ar-002-api-readiness-review.md`
