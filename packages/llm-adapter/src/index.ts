@@ -8,8 +8,8 @@ export interface LlmMessage {
 export interface LlmJsonRequest {
   readonly messages: readonly LlmMessage[];
   readonly schemaName: string;
-  readonly temperature?: number;
-  readonly metadata?: JsonObject;
+  readonly temperature?: number | undefined;
+  readonly metadata?: JsonObject | undefined;
 }
 
 export interface LlmAdapter {

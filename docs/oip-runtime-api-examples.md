@@ -29,19 +29,15 @@ Ce document fournit les **exemples officiels** de requêtes et réponses pour ch
 ### 3.1 SDK
 
 ```typescript
-import { OipPublicClient } from "@opaystech/oip/public";
+import { OipPublicClient, buildRuntimeContextFromAuth } from "@opaystech/oip/public";
 
 const client = OipPublicClient.create({
-  runtimeContext: {
-    requestId: "req-001",
-    channel: "api",
-    user: {
-      userId: "user-123",
-      organizationId: "org-456",
-      roles: ["operator"],
-      workspaceId: "ws-789",
-    },
-  },
+  runtimeContext: buildRuntimeContextFromAuth({
+    userId: "user-123",
+    organizationId: "org-456",
+    roles: ["operator"],
+    workspaceId: "ws-789",
+  }),
 });
 
 const response = await client.invoke({
@@ -58,11 +54,11 @@ const response = await client.invoke({
 });
 
 // response.result
-{
-  text: "La commande #12345 contient 3 articles...";
-  model: "gpt-4o";
-  usage: { promptTokens: 45, completionTokens: 32 };
-}
+// {
+//   text: "La commande ...",
+//   model: "gpt-4o-mini",
+//   usage: { promptTokens: 24, completionTokens: 18 }
+// }
 ```
 
 ### 3.2 HTTP

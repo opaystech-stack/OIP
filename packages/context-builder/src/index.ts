@@ -36,7 +36,7 @@ export class ContextBuilder {
       knowledge,
       metadata: {
         channel: runtime.channel,
-        locale: runtime.user.locale,
+        locale: runtime.user.locale ?? null,
         activeModule: runtime.user.activeModule ?? null,
         activePage: runtime.user.activePage ?? null,
       },

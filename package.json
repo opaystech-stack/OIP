@@ -34,6 +34,10 @@
       "types": "./dist/packages/adapters/src/index.d.ts",
       "default": "./dist/packages/adapters/src/index.js"
     },
+    "./public": {
+      "types": "./dist/packages/public-api/src/index.d.ts",
+      "default": "./dist/packages/public-api/src/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -51,7 +55,8 @@
     "test:builder": "npm run build && node dist/tests/runtime-builder.test.js",
     "test:runtimes": "npm run build && node dist/tests/runtimes/identity-runtime.test.js && node dist/tests/runtimes/event-runtime.test.js && node dist/tests/runtimes/memory-runtime.test.js && node dist/tests/runtimes/context-runtime.test.js && node dist/tests/runtimes/decision-runtime.test.js && node dist/tests/runtimes/policy-runtime.test.js",
     "test:composed": "npm run build && node dist/tests/composed-runtime.test.js",
-    "test:all": "npm run check && npm test && npm run test:builder && npm run test:runtimes && npm run test:composed"
+    "test:public-api": "npm run build && node dist/tests/public-api.test.js",
+    "test:all": "npm run check && npm test && npm run test:builder && npm run test:runtimes && npm run test:composed && npm run test:public-api"
   },
   "repository": {
     "type": "git",

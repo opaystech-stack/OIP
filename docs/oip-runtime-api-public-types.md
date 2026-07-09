@@ -111,17 +111,17 @@ interface LlmGenerateTextPayload {
 
 interface LlmGenerateTextResult {
   readonly text: string;
-  readonly model?: string;
+  readonly model?: string | undefined;
   readonly usage?: {
     readonly promptTokens: number;
     readonly completionTokens: number;
-  };
+  } | undefined;
 }
 
 interface LlmGenerateJsonPayload {
   readonly messages: readonly LlmMessage[];
   readonly schema: JsonObject;
-  readonly temperature?: number;
+  readonly temperature?: number | undefined;
 }
 
 interface LlmGenerateJsonResult {

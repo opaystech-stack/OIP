@@ -7,8 +7,9 @@ export type ConfirmationLevel = "none" | "low" | "medium" | "high" | "critical";
 export interface UserContext {
   readonly userId: string;
   readonly organizationId: string;
+  readonly workspaceId?: string;
   readonly roles: readonly string[];
-  readonly locale: string;
+  readonly locale?: string;
   readonly activeModule?: string;
   readonly activePage?: string;
 }

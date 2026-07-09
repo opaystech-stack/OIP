@@ -10,7 +10,7 @@ export class ContextRuntimeBuilderAdapter implements ContextBuilder {
       userId: runtimeContext.user.userId,
       organizationId: runtimeContext.user.organizationId,
       roles: runtimeContext.user.roles,
-      locale: runtimeContext.user.locale,
+      locale: runtimeContext.user.locale ?? "fr",
       ...(runtimeContext.user.activeModule !== undefined
         ? { activeModule: runtimeContext.user.activeModule }
         : {}),

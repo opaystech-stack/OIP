@@ -72,7 +72,7 @@ Voir `docs/oip-migration-state.md` pour la définition officielle des états.
 >
 > **Important** : il est interdit de recommencer un Discovery ou une revalidation du Manifest pour Opays-HQ sans justification métier majeure. Le cycle d'exécution de cette application part de son état actuel.
 >
-> **Blocage actuel** : MB-001 est bloqué car l'API publique actuelle d'OIP ne permet pas à une application externe d'utiliser directement le LLM Runtime en Shadow Mode. Une étude architecturale est en cours dans `docs/oip-runtime-api-*.md` pour définir l'API publique officielle. Opays-HQ reste bloqué jusqu'à la validation de cette API et son implémentation.
+> **Blocage actuel** : MB-001 était bloqué en attendant l'implémentation de l'API publique OIP. La première opération publique (`llm.generateText`) est maintenant implémentée, testée et exposée via la facade `OipPublicApi`, le routeur HTTP `POST /v1/oip/invoke` et le SDK `@opaystech/oip/public`. Opays-HQ peut reprendre MB-001 en Shadow Mode.
 
 ---
 
@@ -81,7 +81,7 @@ Voir `docs/oip-migration-state.md` pour la définition officielle des états.
 - Ce document est mis à jour chaque fois qu'une application change d'état.
 - L'évolution d'un état doit être justifiée par un artefact validé.
 - Aucune application ne peut sauter une étape sans ADR dédié.
-- **Opays-HQ est actuellement bloqué sur MB-001 dans le cadre de l'API Readiness Program. Aucun développement applicatif ne reprendra avant le verdict READY de l'AR-002. Le verdict READY a été émis le 2026-07-09 ; le blocage reste en vigueur jusqu'à ce que l'API publique soit implémentée, testée, versionnée et documentée.**
+- **Opays-HQ est actuellement bloqué sur MB-001 dans le cadre de l'API Readiness Program. Aucun développement applicatif ne reprendra avant le verdict READY de l'AR-002. Le verdict READY a été émis le 2026-07-09 ; le blocage est levé depuis l'implémentation de la première opération publique `llm.generateText`, testée et exposée via `OipPublicApi`, `POST /v1/oip/invoke` et `@opaystech/oip/public`.**
 
 ---
 
