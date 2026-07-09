@@ -126,6 +126,8 @@ L'analyse produirait du code métier OIP spécifique à l'application. Rejeté c
 - `docs/oip-manifest-analysis-guide.md`
 - `docs/oip-manifest-validation-strategy.md`
 - `docs/oip-migration-backlog-standard.md`
+- `docs/oip-migration-state.md`
+- `docs/oip-pilot-applications.md`
 - `examples/opays.manifest.example.yaml`
 - `examples/opays.migration-backlog.example.yaml`
 

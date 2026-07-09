@@ -201,6 +201,8 @@ Une fois le Manifest v1 approuvé, le Discovery ne génère pas directement le M
 
 Le **Migration Backlog** est construit exclusivement à partir du Manifest v1. Il décrit le travail de migration, tandis que le Manifest décrit l'application.
 
+Le **Migration State** de l'application doit être mis à jour dans `migration.currentState` du Manifest à chaque étape validée. Voir `docs/oip-migration-state.md`.
+
 ### 7.1 Règles
 
 - Le Manifest décrit l'application.
@@ -226,17 +228,20 @@ Une fois le Manifest validé, OIP l'utilise comme unique source de vérité pour
 - connaître les feature flags de migration ;
 - produire le Migration Backlog et le Blueprint.
 
+L'état courant de l'intégration est consultable dans `docs/oip-pilot-applications.md`.
+
 ---
 
 ## 9. Anti-patterns interdits
 
-|| Interdit | Raison |
-|---|---|---|
+| Interdit | Raison |
+|---|---|
 | Réécrire `opays.manifest.yaml` automatiquement | Le Manifest appartient à l'application et doit être validé humainement. |
 | Générer un Blueprint sans Migration Backlog validé | Le Backlog est obligatoire avant toute stratégie d'exécution. |
 | Générer du code OIP spécifique à l'application | OIP reste générique. Seuls les adaptateurs sont du ressort de l'application. |
 | Analyser sans valider la compatibilité OIP | Un Manifest incompatible peut provoquer un échec de démarrage. |
 | Ignorer les personnalisations manuelles | L'analyse doit protéger les décisions humaines. |
+| Recommencer une étape déjà validée sans justification | Le Migration State reflète l'état réel ; il ne doit pas être régressé sans ADR. |
 
 ---
 
@@ -256,6 +261,7 @@ Une fois le Manifest validé, OIP l'utilise comme unique source de vérité pour
 - [ ] Diff proposé et validé si Manifest existant.
 - [ ] JSON Schema validé sur le Manifest final.
 - [ ] Migration Backlog validé avant production du Blueprint.
+- [ ] Migration State mis à jour dans le Manifest.
 
 ---
 
@@ -266,5 +272,7 @@ Une fois le Manifest validé, OIP l'utilise comme unique source de vérité pour
 - `docs/adr/adr-005-integration-manifest.md`
 - `docs/oip-manifest-validation-strategy.md`
 - `docs/oip-migration-backlog-standard.md`
+- `docs/oip-migration-state.md`
+- `docs/oip-pilot-applications.md`
 - `examples/opays.manifest.example.yaml`
 - `examples/opays.migration-backlog.example.yaml`

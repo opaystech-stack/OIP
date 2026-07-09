@@ -247,13 +247,18 @@ featureFlags:
       - oip-shadow-mode
 
 migration:
-  currentPhase: manifest
+  currentState: Migration Backlog
+  validatedAt: "2026-07-09"
+  validatedBy: architecture-team
   phases:
     - id: analysis
       name: Analyse
       done: true
     - id: manifest
       name: Manifest
+      done: true
+    - id: backlog
+      name: Migration Backlog
       done: true
     - id: blueprint
       name: Blueprint de migration
@@ -266,6 +271,9 @@ migration:
       done: false
     - id: cleanup
       name: Suppression du moteur legacy
+      done: false
+    - id: certified
+      name: Certified
       done: false
   compatibilityRules:
     - description: Les endpoints legacy de chat restent actifs tant que le shadow mode n'est pas validé.

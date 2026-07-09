@@ -77,18 +77,15 @@ Livrable : guide "De la codebase existante à la nouvelle application générée
 
 ---
 
-## Phase 5 — Premier pilote Opays-HQ (long terme)
+## Phase 5 — Pilotes d'intégration (long terme)
 
-Objectif : appliquer le cycle sur une application réelle.
+Objectif : appliquer le cycle sur les applications pilotes réelles, en respectant leur Migration State actuel.
 
-- Lancer Discovery sur Opays-HQ.
-- Valider le Manifest avec l'équipe (Manifest v1 approuvé).
-- Produire le **Migration Backlog** validé.
-- Écrire le **Blueprint de migration** basé sur le Manifest et le Backlog.
-- Activer le Shadow Mode.
-- Migrer progressivement les capabilities.
+Exemple : Opays-HQ est actuellement à l'état `Migration Backlog` (Discovery terminé, Manifest v1.0.0 approuvé, Backlog validé). Sa prochaine étape autorisée est le **Migration Blueprint**. Aucun retour à un Discovery ou à une revalidation du Manifest n'est nécessaire.
 
-Livrable : application Opays-HQ intégrée nativement avec OIP.
+Voir `docs/oip-pilot-applications.md` pour l'état détaillé de chaque pilote.
+
+Livrable : première application officiellement intégrée nativement avec OIP.
 
 ---
 
@@ -120,6 +117,8 @@ Livrable : OIP devient la plateforme officielle de conception, génération et i
 - `docs/oip-three-pillars-architecture.md`
 - `docs/oip-target-package-structure.md`
 - `docs/oip-migration-backlog-standard.md`
+- `docs/oip-migration-state.md`
+- `docs/oip-pilot-applications.md`
 - `examples/opays.migration-backlog.example.yaml`
 - `docs/oip-discovery-role.md`
 - `docs/oip-generator-role.md`

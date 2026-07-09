@@ -489,8 +489,10 @@ Le Manifest décrit l'application. Le Migration Backlog décrit le travail. Le B
 Voir :
 
 - `docs/oip-migration-backlog-standard.md`
+- `docs/oip-migration-state.md`
+- `docs/oip-pilot-applications.md`
+- `examples/opays.manifest.example.yaml`
 - `examples/opays.migration-backlog.example.yaml`
-
 ---
 
 ## 7. Gouvernance et validation
@@ -510,19 +512,24 @@ Le Manifest appartient à l'application. OIP ne doit jamais le modifier directem
 7. **Shadow Mode** : exécution parallèle.
 8. **Migration** : remplacement progressif.
 9. **Cleanup** : suppression des composants legacy.
+10. **Certified** : intégration validée officiellement.
 
-### 7.3 Modification du Manifest
+L'état courant d'une application est matérialisé par son **Migration State**, stocké dans `migration.currentState` du Manifest. Voir `docs/oip-migration-state.md`.
+
+### 7.3 Suivi des applications pilotes
 
 Le Manifest évolue uniquement par pull request dans le dépôt de l'application. L'analyse automatique peut proposer un diff, mais l'approbation est humaine.
 
----
+L'état réel des applications pilotes est centralisé dans `docs/oip-pilot-applications.md`. Ce document indique, pour chaque application, son Migration State actuel, ses artefacts validés et sa prochaine étape autorisée.
+
+### 7.4 Modification du Manifest
 
 ## 8. Prochaines étapes de validation
 
 1. Valider le schéma proposé dans une revue d'architecture.
 2. Créer un JSON Schema (`opays.manifest.schema.json`) pour valider automatiquement les Manifests.
 3. Produire un ADR côté OIP : `docs/adr/adr-005-integration-manifest.md`.
-4. Appliquer ce contrat sur le premier pilote : **Opays-HQ**.
+4. Appliquer ce contrat sur les applications pilotes suivies dans `docs/oip-pilot-applications.md`.
 5. Écrire un guide d'analyse : `docs/oip-manifest-analysis-guide.md`.
 6. Définir et valider le standard du Migration Backlog : `docs/oip-migration-backlog-standard.md`.
 
