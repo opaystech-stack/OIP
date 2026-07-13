@@ -84,3 +84,4 @@ export class RuleBasedDecisionRuntime implements DecisionRuntime {
 }
 
 export type { DecisionResult, DecisionRuntime, ExecutionPlan, Intention, PlannedAction } from "../../core/src/contracts/index.js";
+export { HqRoutingDecisionRuntime, type ScoredAction, type HqRoutingOptions } from "./hq-router.js";

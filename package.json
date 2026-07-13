@@ -30,6 +30,10 @@
       "types": "./dist/packages/llm-adapter/src/index.d.ts",
       "default": "./dist/packages/llm-adapter/src/index.js"
     },
+    "./hq-connector": {
+      "types": "./dist/packages/hq-connector/src/index.d.ts",
+      "default": "./dist/packages/hq-connector/src/index.js"
+    },
     "./adapters": {
       "types": "./dist/packages/adapters/src/index.d.ts",
       "default": "./dist/packages/adapters/src/index.js"
@@ -56,7 +60,11 @@
     "test:runtimes": "npm run build && node dist/tests/runtimes/identity-runtime.test.js && node dist/tests/runtimes/event-runtime.test.js && node dist/tests/runtimes/memory-runtime.test.js && node dist/tests/runtimes/context-runtime.test.js && node dist/tests/runtimes/decision-runtime.test.js && node dist/tests/runtimes/policy-runtime.test.js",
     "test:composed": "npm run build && node dist/tests/composed-runtime.test.js",
     "test:public-api": "npm run build && node dist/tests/public-api.test.js",
-    "test:all": "npm run check && npm test && npm run test:builder && npm run test:runtimes && npm run test:composed && npm run test:public-api"
+    "test:hq-connector": "npm run build && node dist/tests/hq-connector.test.js",
+    "test:hq-registry": "npm run build && node dist/tests/hq-registry.test.js",
+    "test:hq-router": "npm run build && node dist/tests/hq-router.test.js",
+    "test:hq-orchestration": "npm run build && node dist/tests/hq-orchestration.test.js",
+    "test:all": "npm run check && npm test && npm run test:builder && npm run test:runtimes && npm run test:composed && npm run test:public-api && npm run test:hq-connector && npm run test:hq-registry && npm run test:hq-router && npm run test:hq-orchestration"
   },
   "repository": {
     "type": "git",

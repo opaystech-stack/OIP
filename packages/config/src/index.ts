@@ -32,6 +32,40 @@ export function loadLlmConfig(env: Record<string, string | undefined> = process.
   };
 }
 
+/**
+ * Configuration for the service-to-service connection to Opays HQ.
+ * The API key is NEVER hard-coded: it is read from the OIP_API_KEY secret
+ * provided by the runtime environment.
+ */
+export interface HqConnectorConfig {
+  readonly baseUrl: string;
+  readonly apiKey: string;
+  readonly timeoutMs: number;
+}
+
+/**
+ * Load the HQ connector configuration from the environment.
+ * - HQ_BASE_URL : base URL of the Opays HQ instance (e.g. https://hq.opays.io)
+ * - OIP_API_KEY : service-to-service secret sent as the `x-oip-api-key` header
+ * - OIP_HQ_TIMEOUT_MS : optional request timeout (defaults to 15000ms)
+ */
+export function loadHqConfig(env: Record<string, string | undefined> = process.env): HqConnectorConfig {
+  const baseUrl = trimTrailingSlash(requiredEnv(env, "HQ_BASE_URL"));
+  const apiKey = requiredEnv(env, "OIP_API_KEY");
+  const rawTimeout = env.OIP_HQ_TIMEOUT_MS;
+  const timeoutMs = rawTimeout ? Number(rawTimeout) : 15_000;
+
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new Error(`Invalid OIP_HQ_TIMEOUT_MS: ${rawTimeout}`);
+  }
+
+  return { baseUrl, apiKey, timeoutMs };
+}
+
+function trimTrailingSlash(value: string): string {
+  return value.endsWith("/") ? value.slice(0, -1) : value;
+}
+
 export function createLlmAdapter(config: LlmConfig): LlmAdapter {
   if (config.provider === "mock") {
     return new MockLlmAdapter(() => ({
