@@ -357,3 +357,4 @@ async function safeMessage(response: HttpResponse): Promise<string> {
 }
 
 export { HqActionRegistry, type HqAction, type HqDiscoveryResult } from "./registry.js";
+export { ManifestClient, type SemanticManifest, type ManifestEntity, type ManifestField, type ManifestOperation, type ManifestQuery } from "./manifest.js";
