@@ -62,7 +62,9 @@
     "test:public-api": "npm run build && node dist/tests/public-api.test.js",
     "test:hq-connector": "npm run build && node dist/tests/hq-connector.test.js",
     "test:hq-registry": "npm run build && node dist/tests/hq-registry.test.js",
-    "test:all": "npm run check && npm test && npm run test:builder && npm run test:runtimes && npm run test:composed && npm run test:public-api && npm run test:hq-connector && npm run test:hq-registry"
+    "test:hq-router": "npm run build && node dist/tests/hq-router.test.js",
+    "test:hq-orchestration": "npm run build && node dist/tests/hq-orchestration.test.js",
+    "test:all": "npm run check && npm test && npm run test:builder && npm run test:runtimes && npm run test:composed && npm run test:public-api && npm run test:hq-connector && npm run test:hq-registry && npm run test:hq-router && npm run test:hq-orchestration"
   },
   "repository": {
     "type": "git",
