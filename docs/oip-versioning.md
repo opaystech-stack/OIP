@@ -30,9 +30,12 @@ MAJOR.MINOR.PATCH[-prerelease][+build]
 
 ## Branches et tags
 
-- La branche `main` porte la version en cours de developpement.
-- Chaque version publiee est taguee `vMAJOR.MINOR.PATCH[-prerelease]`.
-- Les hotfixes stable sont branches depuis le tag et mergees dans `main`.
+> **Règle de gouvernance (Option A — décision CTO 2026-07-09) : cette règle prime sur tout libellé antérieur du présent document.**
+
+- `main` est une branche protégée : aucun commit direct n'y est autorisé.
+- Toute modification (code, doc, release) passe par une branche `feature/*` (ou `release/*` pour un cut de version) → Pull Request → revue technique (CTO/Lead Engineer) → merge.
+- Chaque version publiée est taguée `vMAJOR.MINOR.PATCH[-prerelease]`.
+- Les hotfixes d'une version stable sont branchés depuis le tag correspondant, puis fusionnés dans `main` via Pull Request (jamais en direct).
 
 ## Exemple de chronologie
 
