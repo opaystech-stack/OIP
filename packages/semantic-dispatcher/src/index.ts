@@ -224,3 +224,6 @@ export class SemanticDispatcher {
     }
   }
 }
+
+export { ManifestClient, type SemanticManifest, type ManifestEntity, type ManifestField, type ManifestOperation, type ManifestQuery } from "../../hq-connector/src/manifest.js";
+export { SemanticIntentRouter, type SemanticRoutingOptions } from "./router.js";

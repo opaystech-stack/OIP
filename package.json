@@ -69,7 +69,8 @@
     "test:hq-router": "npm run build && node dist/tests/hq-router.test.js",
     "test:hq-orchestration": "npm run build && node dist/tests/hq-orchestration.test.js",
     "test:semantic-dispatcher": "npm run build && node dist/tests/semantic-dispatcher.test.js",
-    "test:all": "npm run check && npm test && npm run test:builder && npm run test:runtimes && npm run test:composed && npm run test:public-api && npm run test:hq-connector && npm run test:hq-registry && npm run test:hq-router && npm run test:hq-orchestration && npm run test:semantic-dispatcher"
+    "test:semantic-router": "npm run build && node dist/tests/semantic-router.test.js",
+    "test:all": "npm run check && npm test && npm run test:builder && npm run test:runtimes && npm run test:composed && npm run test:public-api && npm run test:hq-connector && npm run test:hq-registry && npm run test:hq-router && npm run test:hq-orchestration && npm run test:semantic-dispatcher && npm run test:semantic-router"
   },
   "repository": {
     "type": "git",
