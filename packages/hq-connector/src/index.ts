@@ -355,3 +355,5 @@ async function safeMessage(response: HttpResponse): Promise<string> {
     return "Access denied by HQ.";
   }
 }
+
+export { HqActionRegistry, type HqAction, type HqDiscoveryResult } from "./registry.js";
