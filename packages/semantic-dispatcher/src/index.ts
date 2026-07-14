@@ -9,19 +9,42 @@ import type { HqExecutionResult } from "../../hq-connector/src/index.js";
 import type { IdentityContext } from "../../core/src/contracts/identity.js";
 
 /**
- * SemanticDispatcher (ADR-012 — Hermes philosophy).
+ * Active Page Context (ADR-014 §2.1).
+ *
+ * Pushed by the product at each copilot interaction. Derived from the Semantic
+ * Manifest (ADR-012). OIP/PX only READ this context; the product remains the
+ * decision-maker.
+ */
+export interface PageContext {
+  readonly product: string;
+  readonly manifestVersion: string;
+  readonly route: string;
+  readonly entity?: string;
+  readonly entityId?: string;
+  readonly view?: string;
+  readonly visibleFields?: readonly string[];
+  readonly availableOperations?: readonly string[];
+  readonly selection?: JsonObject;
+  readonly locale?: string;
+  readonly userRole?: string;
+}
+
+/**
+ * SemanticDispatcher (ADR-012 + ADR-014).
  *
  * OIP holds NO hard-coded tool prompts or capability lists. It only knows the
  * universal action function:
  *
- *   execute(entity, operation, payload, identity)
+ *   execute(entity, operation, payload, identity, pageContext?)
  *
  * On every call, the dispatcher:
  * 1. Loads the Semantic Manifest from the product (`/api/oip/manifest`).
  * 2. Extracts only the requested entity schema and operation metadata.
  * 3. Validates RBAC locally (identity roles vs operation.roles).
- * 4. Builds and validates the payload against declared fields.
- * 5. Sends the action to the product via the generic capability execution channel.
+ * 4. Builds and validates the payload against declared fields, optionally
+ *    enriched by page_context (active entity, selection, prefill).
+ * 5. Sends the action to the product via the generic capability execution channel
+ *    OR returns a `render_ui` directive when the operation is of type `render_ui`.
  *
  * Memory Routing: the manifest is fetched on-demand and never persisted as a
  * static tool registry inside OIP.
@@ -33,12 +56,22 @@ export interface SemanticAction {
   readonly payload: JsonObject;
 }
 
+export interface RenderUiDirective {
+  readonly action: "render_ui";
+  readonly component: string;
+  readonly entity: string;
+  readonly mode: "create" | "edit" | "list" | "kanban" | "detail";
+  readonly prefill: JsonObject;
+  readonly onSubmit: string;
+}
+
 export interface SemanticExecutionResult {
-  readonly status: "completed" | "forbidden" | "invalid" | "error" | "unauthorized";
+  readonly status: "completed" | "forbidden" | "invalid" | "error" | "unauthorized" | "render_ui";
   readonly httpStatus?: number;
   readonly data?: JsonObject;
   readonly message?: string;
   readonly details?: JsonObject | undefined;
+  readonly render?: RenderUiDirective;
 }
 
 export interface HqConnectorLike {
@@ -55,6 +88,12 @@ export interface SemanticDispatcherOptions {
    * Default: 0 (no caching).
    */
   readonly manifestCacheMs?: number;
+  /**
+   * Optional catalogue of components PX can render per entity (ADR-014 §2.2).
+   * Example: { Task: ["TaskForm", "TaskKanban"], Invoice: ["InvoiceTable"] }.
+   * If omitted, render_ui is disabled.
+   */
+  readonly renderCatalogue?: Readonly<Record<string, readonly string[]>>;
 }
 
 interface CacheEntry {
@@ -89,12 +128,16 @@ export class SemanticDispatcher {
   /**
    * Universal action entry-point.
    * No hard-coded prompts. All routing derives from the product manifest.
+   * When pageContext is provided, the payload can be enriched by the active page
+   * state (selection, entity_id) and render_ui operations are resolved against
+   * the render catalogue.
    */
   async execute(
     entity: string,
     operation: string,
     payload: JsonObject,
     identity: IdentityContext,
+    pageContext?: PageContext,
   ): Promise<SemanticExecutionResult> {
     const manifest = await this.loadManifest();
     const entitySchema = manifest.entities[entity];
@@ -118,12 +161,18 @@ export class SemanticDispatcher {
       return { status: "forbidden", message: (rbac as RbacFail).reason };
     }
 
-    const validation = this.validatePayload(payload, entitySchema.fields, operation);
+    const enrichedPayload = mergePageContext(payload, pageContext);
+
+    const validation = this.validatePayload(enrichedPayload, entitySchema.fields, operation);
     if (!validation.ok) {
       return { status: "invalid", message: (validation as ValidationFail).reason, details: (validation as ValidationFail).details };
     }
 
-    return this.sendToProduct(entity, operation, payload, identity.userId);
+    if (operation === "render_ui") {
+      return this.buildRenderUi(entity, enrichedPayload, identity.userId, pageContext);
+    }
+
+    return this.sendToProduct(entity, operation, enrichedPayload, identity.userId);
   }
 
   private async loadManifest(): Promise<SemanticManifest> {
@@ -160,6 +209,10 @@ export class SemanticDispatcher {
     fields: Readonly<Record<string, ManifestField>>,
     operation: string,
   ): ValidationResult {
+    // render_ui is a meta-operation (ADR-014 §2.2). Only component/mode are
+    // meaningful to OIP; prefill values are validated by the product later.
+    if (operation === "render_ui") return { ok: true };
+
     const required = Object.entries(fields)
       .filter(([, f]) => f.required && !f.readonly)
       .map(([name]) => name);
@@ -177,7 +230,8 @@ export class SemanticDispatcher {
     for (const [name, value] of Object.entries(payload)) {
       const field = fields[name];
       if (!field) {
-        errors[name] = "undeclared field";
+        // ADR-014: context fields not declared in the manifest are forwarded to
+        // the product as contextual metadata; OIP only validates declared fields.
         continue;
       }
       if (field.readonly) {
@@ -223,6 +277,61 @@ export class SemanticDispatcher {
       };
     }
   }
+
+  private buildRenderUi(
+    entity: string,
+    payload: JsonObject,
+    _actorId: string,
+    pageContext?: PageContext,
+  ): SemanticExecutionResult {
+    const catalogue = this.options.renderCatalogue?.[entity];
+    if (!catalogue || catalogue.length === 0) {
+      return {
+        status: "invalid",
+        message: `render_ui is not available for entity "${entity}" (no render catalogue).`,
+      };
+    }
+
+    const component = (payload.component as string | undefined) ?? catalogue[0];
+    if (component === undefined || !catalogue.includes(component)) {
+      return {
+        status: "invalid",
+        message: `Component "${component ?? ""}" is not in the render catalogue for entity "${entity}".`,
+      };
+    }
+
+    const mode = (payload.mode as RenderUiDirective["mode"] | undefined) ?? "create";
+    const prefill: Record<string, JsonValue> = { ...(pageContext?.selection ?? {}), ...payload };
+    delete prefill.component;
+    delete prefill.mode;
+
+    const render: RenderUiDirective = {
+      action: "render_ui",
+      component,
+      entity,
+      mode,
+      prefill,
+      onSubmit: `execute(entity=${entity}, operation=create, payload=$form)`,
+    };
+
+    return { status: "render_ui", render };
+  }
+}
+
+function mergePageContext(payload: JsonObject, pageContext?: PageContext): JsonObject {
+  if (!pageContext) return payload;
+  const merged: Record<string, JsonValue> = { ...payload };
+  if (pageContext.entityId) {
+    merged[`${pageContext.entity?.toLowerCase() ?? "entity"}_id`] = pageContext.entityId;
+  }
+  if (pageContext.selection) {
+    for (const [key, value] of Object.entries(pageContext.selection)) {
+      if (!(key in merged)) {
+        merged[key] = value;
+      }
+    }
+  }
+  return merged as JsonObject;
 }
 
 export { ManifestClient, type SemanticManifest, type ManifestEntity, type ManifestField, type ManifestOperation, type ManifestQuery } from "../../hq-connector/src/manifest.js";
