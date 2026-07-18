@@ -7,6 +7,7 @@ import type {
 } from "../../hq-connector/src/manifest.js";
 import type { HqExecutionResult } from "../../hq-connector/src/index.js";
 import type { IdentityContext } from "../../core/src/contracts/identity.js";
+import { manifestToFunctionTools, type FunctionTool } from "./function-calling.js";
 
 /**
  * Active Page Context (ADR-014 §2.1).
@@ -188,6 +189,22 @@ export class SemanticDispatcher {
     return manifest;
   }
 
+  /**
+   * Public, on-demand manifest accessor (ADR-012). Used by the multi-app
+   * catalogue to aggregate function-calling tools without any static registry.
+   */
+  async getManifest(): Promise<SemanticManifest> {
+    return this.loadManifest();
+  }
+
+  /**
+   * Generate the OpenAI/DeepSeek function-calling tools for THIS product,
+   * derived live from its manifest. No hard-coded tools.
+   */
+  async listFunctionTools(): Promise<readonly FunctionTool[]> {
+    return manifestToFunctionTools(await this.loadManifest());
+  }
+
   private checkRbac(
     identity: IdentityContext,
     op: ManifestOperation,
@@ -239,6 +256,14 @@ export class SemanticDispatcher {
       }
       if (field.values && !(field.values as readonly unknown[]).includes(value)) {
         errors[name] = `expected one of ${JSON.stringify(field.values)}`;
+      }
+      if (typeof value === "number") {
+        if (field.min !== undefined && value < field.min) {
+          errors[name] = `must be >= ${field.min}`;
+        }
+        if (field.max !== undefined && value > field.max) {
+          errors[name] = `must be <= ${field.max}`;
+        }
       }
     }
 
@@ -336,3 +361,18 @@ function mergePageContext(payload: JsonObject, pageContext?: PageContext): JsonO
 
 export { ManifestClient, type SemanticManifest, type ManifestEntity, type ManifestField, type ManifestOperation, type ManifestQuery } from "../../hq-connector/src/manifest.js";
 export { SemanticIntentRouter, type SemanticRoutingOptions } from "./router.js";
+export {
+  manifestToFunctionTools,
+  toFunctionName,
+  parseFunctionName,
+  FUNCTION_NAME_SEPARATOR,
+  type FunctionTool,
+  type FunctionDefinition,
+  type JsonSchema,
+} from "./function-calling.js";
+export {
+  MultiAppCatalogue,
+  PRODUCT_NAMESPACE_SEPARATOR,
+  type RegisteredProduct,
+  type NamespacedFunctionTool,
+} from "./catalogue.js";
