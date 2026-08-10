@@ -15,6 +15,7 @@ export interface ExecutionStep {
 
 export interface ExecutionPlan {
   readonly planId: string;
+  readonly agentId?: string;
   readonly steps: readonly ExecutionStep[];
   readonly requiresConfirmation: boolean;
   readonly explanation: string;

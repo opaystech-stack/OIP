@@ -23,14 +23,15 @@ identity.registerWorkspace({
 
 const tests = [
   {
-    name: "IdentityRuntime authenticates anonymous requests",
+    name: "IdentityRuntime rejects missing authorization",
     run: async () => {
-      const result = await identity.authenticate({
-        channel: "web",
-        rawPayload: {},
-        text: "hello",
-      });
-      assertEqual(result.userId, "anonymous");
+      let rejected = false;
+      try {
+        await identity.authenticate({ channel: "web", rawPayload: {}, text: "hello" });
+      } catch {
+        rejected = true;
+      }
+      assertEqual(rejected, true);
     },
   },
   {

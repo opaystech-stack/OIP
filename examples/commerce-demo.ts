@@ -1,27 +1,43 @@
 import {
-  ActionEngine,
-  CapabilityRegistry,
-  registerPlugin,
-  RuleBasedPlanner,
-  ToolRegistry,
-  Validator,
-  type RuntimeContext,
-} from "../packages/core/src/index.js";
+  OipRuntime,
+  type CapabilityDescriptor,
+  type ExecutionContext,
+} from "../packages/runtime/src/index.js";
 import { commercePlugin, getInventorySnapshot } from "./plugins/commerce/src/index.js";
 
-const capabilities = new CapabilityRegistry();
-const tools = new ToolRegistry();
-const validator = new Validator();
-const planner = new RuleBasedPlanner();
+const capabilityId = "commerce.inventory.add";
+const capability = commercePlugin.capabilities.find((candidate) => candidate.id === capabilityId);
+const tool = commercePlugin.tools.get(capabilityId);
 
-registerPlugin(commercePlugin, capabilities, tools);
+if (!capability || !tool) {
+  throw new Error(`Commerce demo capability is not registered: ${capabilityId}`);
+}
 
-const actionEngine = new ActionEngine(capabilities, tools, validator);
+const descriptor: CapabilityDescriptor = {
+  ...capability,
+  keywords: ["stock", "inventaire", "ciment", "ajouter", "restock"],
+  aliases: ["ajouter au stock", "réapprovisionner le stock"],
+  source: "commerce-demo",
+  availability: "available",
+  verification: async (actionResult) => ({
+    verified: actionResult.status === "completed",
+    summary: actionResult.status === "completed"
+      ? "Le stock Commerce a été mis à jour."
+      : "La mise à jour du stock Commerce a été rejetée.",
+    evidence: {
+      status: actionResult.status,
+      ...(actionResult.data !== undefined ? { data: actionResult.data } : {}),
+    },
+  }),
+};
 
-const context: RuntimeContext = {
+const runtime = new OipRuntime();
+await runtime.registerCapability(descriptor, tool);
+
+const context: ExecutionContext = {
   requestId: "demo-request-001",
-  channel: "web",
-  user: {
+  threadId: "demo-thread-001",
+  identity: {
     userId: "user-001",
     organizationId: "opays-demo",
     roles: ["inventory.manager"],
@@ -29,9 +45,22 @@ const context: RuntimeContext = {
     activeModule: "commerce",
     activePage: "inventory",
   },
+  channel: "web",
 };
 
-const plan = await planner.plan("Ajoute 20 sacs de ciment au stock");
-const result = await actionEngine.execute(plan, context);
+const result = await runtime.capabilityGateway.invoke(
+  {
+    query: "Ajoute 20 sacs de ciment au stock",
+    arguments: {
+      itemName: "sacs de ciment",
+      quantity: 20,
+    },
+  },
+  context,
+);
 
-console.log(JSON.stringify({ plan, result, inventory: getInventorySnapshot() }, null, 2));
+if (result.status !== "completed") {
+  throw new Error(`Commerce demo did not complete: ${result.message}`);
+}
+
+console.log(JSON.stringify({ result, inventory: getInventorySnapshot() }, null, 2));

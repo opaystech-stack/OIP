@@ -4,6 +4,7 @@ export interface ConversationMemoryEntry {
   readonly requestId: string;
   readonly organizationId: string;
   readonly userId: string;
+  readonly threadId?: string;
   readonly input: string;
   readonly response: string;
   readonly occurredAt: string;

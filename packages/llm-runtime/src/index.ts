@@ -26,3 +26,4 @@ export class LlmAdapterRuntime implements LlmRuntime {
 }
 
 export type { LlmRuntime } from "../../core/src/contracts/index.js";
+export { ProviderRegistry, type ProviderRegistration } from "./provider-registry.js";

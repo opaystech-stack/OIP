@@ -15,6 +15,21 @@ export interface ManifestField {
   readonly required?: boolean;
   readonly readonly?: boolean;
   readonly values?: readonly unknown[];
+  /**
+   * Optional human/LLM-facing description, surfaced verbatim into the generated
+   * function-calling schema (ADR-012). OIP never invents descriptions.
+   */
+  readonly description?: string;
+  /**
+   * Optional numeric bounds declared by the product. OIP enforces them during
+   * payload validation but has no opinion on what the bounds mean. Geospatial
+   * fields (lat/lng/radius) use these like any other numeric field — no
+   * geo-specific logic lives in OIP.
+   */
+  readonly min?: number;
+  readonly max?: number;
+  /** Optional item type for array fields, forwarded to the JSON-Schema output. */
+  readonly items?: string;
 }
 
 export interface ManifestOperation {

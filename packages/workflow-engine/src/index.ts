@@ -85,3 +85,10 @@ function validateRoles(requiredRoles: readonly string[], context: RuntimeContext
       message: `User is missing required role: ${role}`,
     }));
 }
+
+export {
+  DurableWorkflowRuntime,
+  DurableWorkflowRegistry,
+  InMemoryWorkflowExecutionStore,
+  type DurableWorkflowHandler,
+} from "./durable-runtime.js";

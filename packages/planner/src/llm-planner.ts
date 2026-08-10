@@ -1,6 +1,7 @@
 import type { CapabilityDefinition, JsonObject, PlannedAction } from "../../core/src/index.js";
 import type { LlmAdapter } from "../../llm-adapter/src/index.js";
 
+/** @deprecated A provider may infer an Intention only; DecisionEngine selects capabilities. */
 export class LlmPlanner {
   constructor(
     private readonly llm: LlmAdapter,

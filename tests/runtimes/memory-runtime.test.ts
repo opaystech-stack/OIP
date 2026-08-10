@@ -45,6 +45,28 @@ const tests = [
       assertEqual(results.length, 0);
     },
   },
+  {
+    name: "MemoryRuntime shares organization memory and ranks relevant entries",
+    run: async () => {
+      await runtime.append({
+        id: "m2",
+        type: "organization",
+        workspaceId: "ws-1",
+        userId: "system",
+        content: "The organization inventory policy requires an approval.",
+        occurredAt: new Date().toISOString(),
+      });
+      const results = await runtime.recall({
+        content: "inventory approval",
+        workspaceId: "ws-1",
+        userId: "another-user",
+        limit: 10,
+      });
+      assertEqual(results.length, 1);
+      assertEqual(results[0]?.entry.id, "m2");
+      assertEqual(results[0]?.score, 1);
+    },
+  },
 ];
 
 async function runTests(): Promise<void> {

@@ -18,12 +18,17 @@ export class InMemoryContextRuntime implements ContextRuntime {
   async build(request: InboundRequest, identity: IdentityContext): Promise<ExecutionContext> {
     const requestId = request.metadata?.["requestId"]?.toString() ?? crypto.randomUUID();
     const workspaceId = identity.organizationId;
+    const candidateThreadId = request.metadata?.["threadId"];
+    const threadId = typeof candidateThreadId === "string" && candidateThreadId.trim().length > 0
+      ? candidateThreadId
+      : undefined;
 
     const [memory, knowledge] = await Promise.all([
       this.memory?.recall({
         content: request.text ?? "",
         workspaceId,
         userId: identity.userId,
+        ...(threadId !== undefined ? { threadId } : {}),
         limit: 5,
       }) ?? [],
       this.knowledge?.search({
@@ -35,6 +40,7 @@ export class InMemoryContextRuntime implements ContextRuntime {
 
     return {
       requestId,
+      ...(threadId !== undefined ? { threadId } : {}),
       identity,
       channel: request.channel,
       locale: identity.locale ?? "fr",

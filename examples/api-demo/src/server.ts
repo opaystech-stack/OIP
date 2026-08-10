@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { createLlmAdapter, loadLlmConfig } from "../../../packages/config/src/index.js";
 import type { JsonObject, RuntimeContext } from "../../../packages/core/src/index.js";
 import { ChatService } from "../../../packages/chat-service/src/index.js";
+import type { LlmAdapter } from "../../../packages/llm-adapter/src/index.js";
 import type { OipRuntime } from "../../../packages/runtime/src/index.js";
 import { createRuntimeFromEnv } from "../../../packages/runtime/src/factory.js";
 import { commercePluginModule } from "../../plugins/commerce/src/index.js";
@@ -9,11 +10,14 @@ import { hrPluginModule } from "../../plugins/hr/src/index.js";
 
 export interface ApiServerOptions {
   readonly port: number;
+  /** Inject a runtime configured with a real IdentityRuntime in production. */
+  readonly runtime?: OipRuntime;
+  readonly llm?: LlmAdapter;
 }
 
 export function startApiServer(options: ApiServerOptions): Server {
-  const runtime = createRuntimeFromEnv().use(commercePluginModule).use(hrPluginModule);
-  const chat = new ChatService(runtime, createLlmAdapter(loadLlmConfig()));
+  const runtime = options.runtime ?? createRuntimeFromEnv().use(commercePluginModule).use(hrPluginModule);
+  const chat = new ChatService(runtime, options.llm ?? createLlmAdapter(loadLlmConfig()));
 
   const server = createServer(async (request, response) => {
     try {
@@ -63,6 +67,7 @@ async function routeRequest(
     const result = await chat.handle({
       input,
       context: createRuntimeContext(body),
+      headers: requestHeaders(request),
     });
 
     sendJson(response, 200, result);
@@ -70,24 +75,9 @@ async function routeRequest(
   }
 
   if (request.method === "POST" && request.url === "/actions") {
-    const body = await readJsonBody(request);
-
-    if (typeof body.capabilityId !== "string" || !isJsonObject(body.arguments)) {
-      sendJson(response, 400, { error: "Fields capabilityId and arguments are required." });
-      return;
-    }
-
-    const result = await runtime.execute(
-      {
-        capabilityId: body.capabilityId,
-        arguments: body.arguments,
-        confidence: typeof body.confidence === "number" ? body.confidence : 1,
-        reason: typeof body.reason === "string" ? body.reason : "Direct API action request.",
-      },
-      createRuntimeContext(body),
-    );
-
-    sendJson(response, result.status === "completed" ? 200 : 422, result);
+    sendJson(response, 410, {
+      error: "Direct capability execution is retired. Submit an intention through the governed runtime.",
+    });
     return;
   }
 
@@ -128,26 +118,23 @@ async function routeRequest(
 }
 
 function createRuntimeContext(body: JsonObject): RuntimeContext {
-  const user = isJsonObject(body.user) ? body.user : {};
-  const roles = Array.isArray(user.roles) ? user.roles.filter((role): role is string => typeof role === "string") : [];
-
   return {
     requestId: typeof body.requestId === "string" ? body.requestId : crypto.randomUUID(),
     channel: "api",
-    metadata: {
-      confirmedCapabilities: Array.isArray(body.confirmedCapabilities)
-        ? body.confirmedCapabilities.filter((capabilityId): capabilityId is string => typeof capabilityId === "string")
-        : [],
-    },
     user: {
-      userId: typeof user.userId === "string" ? user.userId : "api-user",
-      organizationId: typeof user.organizationId === "string" ? user.organizationId : "api-org",
-      roles,
-      locale: typeof user.locale === "string" ? user.locale : "fr-CD",
-      activeModule: typeof user.activeModule === "string" ? user.activeModule : "commerce",
-      activePage: typeof user.activePage === "string" ? user.activePage : "chat",
+      userId: "gateway",
+      organizationId: "unresolved",
+      roles: [],
     },
   };
+}
+
+function requestHeaders(request: IncomingMessage): { readonly [key: string]: string } {
+  const headers: Record<string, string> = {};
+  for (const [name, value] of Object.entries(request.headers)) {
+    if (typeof value === "string") headers[name] = value;
+  }
+  return headers;
 }
 
 async function readJsonBody(request: IncomingMessage): Promise<JsonObject> {

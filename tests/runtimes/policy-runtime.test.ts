@@ -10,7 +10,7 @@ const runtime = new InMemoryPolicyRuntime();
 
 const tests = [
   {
-    name: "PolicyRuntime allows requests by default",
+    name: "PolicyRuntime denies requests without an explicit policy",
     run: async () => {
       const result = await runtime.evaluate(
         {
@@ -32,6 +32,25 @@ const tests = [
           channel: "web",
         },
       );
+      assertEqual(result.effect, "deny");
+    },
+  },
+  {
+    name: "PolicyRuntime allows a registered role-bound action",
+    run: async () => {
+      await runtime.registerPolicy({
+        id: "inventory-add",
+        description: "Inventory additions require a manager.",
+        resource: "inventory",
+        action: "add",
+        rules: [{ rolesAll: ["inventory.manager"] }],
+      });
+      const result = await runtime.evaluate({
+        subject: { userId: "u2", organizationId: "org-1", roles: ["inventory.manager"] },
+        resource: "inventory", action: "add",
+      }, {
+        requestId: "r2", identity: { userId: "u2", organizationId: "org-1", roles: ["inventory.manager"] }, channel: "web",
+      });
       assertEqual(result.effect, "allow");
     },
   },

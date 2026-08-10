@@ -13,3 +13,5 @@ export * from "./workflow.js";
 export * from "./skill.js";
 export * from "./channel.js";
 export * from "./runtime.js";
+export * from "./provider.js";
+export * from "./agent.js";
