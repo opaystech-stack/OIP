@@ -30,6 +30,11 @@ services:
       traefik.http.routers.opays-odoo-agent.entrypoints: "websecure"
       traefik.http.routers.opays-odoo-agent.tls: "true"
       traefik.http.routers.opays-odoo-agent.tls.certresolver: "letsencrypt"
+      traefik.http.routers.opays-odoo-agent-health.rule: "Host(`hq.opays.io`) && Path(`/health`)"
+      traefik.http.routers.opays-odoo-agent-health.entrypoints: "websecure"
+      traefik.http.routers.opays-odoo-agent-health.tls: "true"
+      traefik.http.routers.opays-odoo-agent-health.tls.certresolver: "letsencrypt"
+      traefik.http.routers.opays-odoo-agent-health.priority: "100"
       traefik.http.services.opays-odoo-agent.loadbalancer.server.port: "3000"
 
 networks:
