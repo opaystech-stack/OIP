@@ -1,7 +1,7 @@
 services:
-  odoo-mcp:
+  opays-odoo-agent:
     build:
-      context: .
+      context: ../..
       dockerfile: services/odoo-mcp/Dockerfile
     restart: unless-stopped
     environment:
@@ -10,7 +10,7 @@ services:
       ODOO_DB: "opays_hq"
       ODOO_USER: "oip-system-agent@opays.io"
       ODOO_PASSWORD: "${OIP_ODOO_SERVICE_PASSWORD}"
-      MCP_AUTH_TOKEN: "${OIP_MCP_AUTH_TOKEN}"
+      MCP_AUTH_TOKEN: "${MCP_AUTH_TOKEN}"
       OIP_ORGANIZATION_ID: "opays_hq"
       OIP_REQUIRED_ROLE: "oip.service"
       OIP_ROLES: "oip.service"
@@ -26,11 +26,11 @@ services:
     labels:
       traefik.enable: "true"
       traefik.docker.network: "${TRAEFIK_NETWORK}"
-      traefik.http.routers.opays-odoo-mcp.rule: "Host(`hq.opays.io`) && PathPrefix(`/mcp`)"
-      traefik.http.routers.opays-odoo-mcp.entrypoints: "websecure"
-      traefik.http.routers.opays-odoo-mcp.tls: "true"
-      traefik.http.routers.opays-odoo-mcp.tls.certresolver: "letsencrypt"
-      traefik.http.services.opays-odoo-mcp.loadbalancer.server.port: "3000"
+      traefik.http.routers.opays-odoo-agent.rule: "Host(`hq.opays.io`) && PathPrefix(`/mcp`)"
+      traefik.http.routers.opays-odoo-agent.entrypoints: "websecure"
+      traefik.http.routers.opays-odoo-agent.tls: "true"
+      traefik.http.routers.opays-odoo-agent.tls.certresolver: "letsencrypt"
+      traefik.http.services.opays-odoo-agent.loadbalancer.server.port: "3000"
 
 networks:
   opays-odoo-internal:

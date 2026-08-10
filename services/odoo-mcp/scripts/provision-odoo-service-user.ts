@@ -14,7 +14,6 @@ const servicePassword = required("OIP_ODOO_SERVICE_PASSWORD");
 
 const admin = new OdooJsonRpcClient(adminConfig);
 const adminUid = await admin.authenticate();
-const baseInternalGroupId = await externalId(admin, "base", "group_user");
 const serviceGroupId = await ensureServiceGroup(admin);
 
 const modelIds = await resolveModels(admin, [
@@ -35,7 +34,7 @@ const userValues = {
   password: servicePassword,
   active: true,
   share: false,
-  groups_id: [[6, 0, [baseInternalGroupId, serviceGroupId]]],
+  group_ids: [[6, 0, [serviceGroupId]]],
 };
 const serviceUid = existing === undefined
   ? await createUser(admin, userValues)
@@ -49,7 +48,7 @@ const serviceClient = new OdooJsonRpcClient({
 });
 await serviceClient.authenticate();
 const access = await readAccessMatrix(serviceClient);
-const user = await searchOne(serviceClient, "res.users", [["id", "=", serviceUid]], ["login", "active", "share", "groups_id"]);
+const user = await searchOne(serviceClient, "res.users", [["id", "=", serviceUid]], ["login", "active", "share", "group_ids"]);
 
 if (!access["res.partner.read"] || !access["project.project.read"] || !access["project.task.read"] || !access["account.move.read"] || !access["hr.employee.read"] || !access["crm.lead.create"] || access["res.partner.write"] || access["project.task.write"] || access["account.move.write"] || access["hr.employee.write"]) {
   throw new Error("The service-user access matrix does not satisfy the least-privilege gate.");
@@ -61,7 +60,7 @@ console.log(JSON.stringify({
   serviceUid,
   login: SERVICE_LOGIN,
   database: DATABASE,
-  groupIds: [baseInternalGroupId, serviceGroupId],
+  groupIds: [serviceGroupId],
   user: user ? { login: user.login, active: user.active, share: user.share } : undefined,
   access,
   secret: "stored by caller only; value not printed",
@@ -112,12 +111,6 @@ async function resolveModels(client: OdooJsonRpcClient, names: readonly string[]
     result[name] = row.id;
   }
   return result;
-}
-
-async function externalId(client: OdooJsonRpcClient, module: string, name: string): Promise<number> {
-  const row = await searchOne(client, "ir.model.data", [["module", "=", module], ["name", "=", name]], ["res_id"]);
-  if (!row?.res_id) throw new Error(`Odoo external id is not installed: ${module}.${name}`);
-  return requireNumber(row.res_id, `${module}.${name}`);
 }
 
 async function createUser(client: OdooJsonRpcClient, values: Record<string, unknown>): Promise<number> {
