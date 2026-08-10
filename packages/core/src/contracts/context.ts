@@ -5,6 +5,8 @@ import type { MemoryResult } from "./memory.js";
 
 export interface ExecutionContext {
   readonly requestId: string;
+  /** Trusted, validated conversation identifier. Required by durable memory adapters. */
+  readonly threadId?: string;
   readonly identity: IdentityContext;
   readonly channel: "web" | "mobile" | "whatsapp" | "telegram" | "api" | "voice";
   readonly locale?: string;

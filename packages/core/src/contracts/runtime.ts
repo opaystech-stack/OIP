@@ -42,6 +42,8 @@ export interface PolicyRuntime {
 
 export interface WorkflowRuntime {
   start(workflowId: string, args: Record<string, unknown>, context: ExecutionContext): Promise<WorkflowExecution>;
+  resume(executionId: string, context: ExecutionContext): Promise<WorkflowExecution>;
+  compensate(executionId: string, context: ExecutionContext): Promise<WorkflowExecution>;
   signal(executionId: string, signal: WorkflowSignal): Promise<void>;
   getState(executionId: string): Promise<WorkflowExecution>;
   listDefinitions(context: ExecutionContext): Promise<readonly WorkflowDefinition[]>;

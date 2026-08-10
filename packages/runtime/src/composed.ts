@@ -31,6 +31,7 @@ import { installPluginModule, type OipPluginModule } from "../../plugin-sdk/src/
 import { ActionEngineRuntime } from "../../action-runtime/src/index.js";
 import { RuleBasedDecisionRuntime } from "../../decision-runtime/src/index.js";
 
+/** @deprecated Migration adapter. New transports must use OipRuntime.handle(). */
 export class ComposedRuntime {
   readonly capabilities = new CapabilityRegistry();
   readonly tools = new ToolRegistry();

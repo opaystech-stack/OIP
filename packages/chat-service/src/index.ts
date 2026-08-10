@@ -1,11 +1,12 @@
 import type { ActionResult, JsonObject, RuntimeContext } from "../../core/src/index.js";
-import type { BuiltContext } from "../../context-builder/src/index.js";
 import type { LlmAdapter } from "../../llm-adapter/src/index.js";
-import { OipRuntime } from "../../runtime/src/index.js";
+import { LlmAdapterRuntime } from "../../llm-runtime/src/index.js";
+import { LlmIntentInterpreter, OipRuntime } from "../../runtime/src/index.js";
 
 export interface ChatRequest {
   readonly input: string;
   readonly context: RuntimeContext;
+  readonly headers?: { readonly [key: string]: string };
 }
 
 export interface ChatResponse {
@@ -37,64 +38,38 @@ export class ChatService {
         channel: request.context.channel,
       },
       async () => {
-        const builtContext = await this.runtime.buildContext(request.input, request.context);
-        const planner = this.runtime.createPlanner(this.llm);
-        const plan = await planner.plan(createPlannerInput(request.input, builtContext));
-        const action = await this.runtime.execute(plan, request.context);
-        const message = createUserMessage(action);
-
-        await this.runtime.memory.append({
-          requestId: request.context.requestId,
-          organizationId: request.context.user.organizationId,
-          userId: request.context.user.userId,
-          input: request.input,
-          response: message,
-          occurredAt: new Date().toISOString(),
-          metadata: {
-            capabilityId: plan.capabilityId,
-            actionStatus: action.status,
-          },
-        });
+        const outcome = await this.runtime.handle({
+          channel: request.context.channel,
+          rawPayload: { text: request.input },
+          text: request.input,
+          metadata: { requestId: request.context.requestId },
+          ...(request.headers !== undefined ? { headers: request.headers } : {}),
+        }, new LlmIntentInterpreter(new LlmAdapterRuntime(this.llm)));
+        const step = outcome.decision.type === "plan" ? outcome.decision.plan.steps[0] : undefined;
+        const action = outcome.actions[0] ?? {
+          capabilityId: step?.capabilityId ?? "oip.none",
+          status: "rejected" as const,
+          events: [],
+        };
 
         return {
-          message,
+          message: outcome.response,
           plan: {
-            capabilityId: plan.capabilityId,
-            confidence: plan.confidence,
-            reason: plan.reason,
+            capabilityId: step?.capabilityId ?? "oip.none",
+            confidence: outcome.intention.confidence,
+            reason: outcome.decision.type === "plan" ? outcome.decision.plan.explanation : outcome.response,
           },
           action,
           context: {
-            knowledgeCount: builtContext.knowledge.length,
+            knowledgeCount: outcome.context.knowledge?.length ?? 0,
             metadata: {
-              ...builtContext.metadata,
-              memoryCount: builtContext.memory.length,
+              channel: outcome.context.channel,
+              locale: outcome.context.locale ?? "fr",
+              memoryCount: outcome.context.memory?.length ?? 0,
             },
           },
         };
       },
     );
   }
-}
-
-function createPlannerInput(input: string, context: BuiltContext): string {
-  return JSON.stringify({
-    input,
-    runtime: context.metadata,
-    knowledge: context.knowledge.map((item) => ({
-      title: item.title,
-      content: item.content,
-      score: item.score,
-      sourceId: item.sourceId,
-    })),
-    memory: context.memory,
-  });
-}
-
-function createUserMessage(action: ActionResult): string {
-  if (action.status === "rejected") {
-    return "Je ne peux pas executer cette action avec le contexte actuel. Une validation ou permission manque.";
-  }
-
-  return "Action executee avec succes.";
 }

@@ -17,6 +17,8 @@ export interface UserContext {
 export interface RuntimeContext {
   readonly user: UserContext;
   readonly requestId: string;
+  /** Trusted, validated conversation identifier when memory is thread-scoped. */
+  readonly threadId?: string;
   readonly channel: "web" | "mobile" | "whatsapp" | "telegram" | "api" | "voice";
   readonly metadata?: JsonObject;
 }

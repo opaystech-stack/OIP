@@ -25,6 +25,7 @@ export class ContextRuntimeBuilderAdapter implements ContextBuilder {
       text: input,
       metadata: {
         requestId: runtimeContext.requestId,
+        ...(runtimeContext.threadId !== undefined ? { threadId: runtimeContext.threadId } : {}),
         ...runtimeContext.metadata,
       } as JsonObject,
     };
@@ -37,6 +38,7 @@ export class ContextRuntimeBuilderAdapter implements ContextBuilder {
 function adaptExecutionContext(context: ExecutionContext, runtimeContext: RuntimeContext): BuiltContext {
   return {
     runtime: runtimeContext,
+    ...(context.threadId !== undefined ? { threadId: context.threadId } : {}),
     knowledge: context.knowledge?.map((result) => ({
       sourceId: result.sourceId,
       title: result.title,

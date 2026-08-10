@@ -1,5 +1,15 @@
 # OIP - Implementation Status
 
+## Release status — v0.1.0-alpha.1
+
+**CONSOLIDATED & READY**
+
+The public OIP API, the governed Capability Gateway, the official MCP
+stdio/in-memory transports, and the TanStack AI Memory integration are
+consolidated and ready for the alpha release candidate. The public execution
+path preserves authenticated identity, tenant scope, policy evaluation,
+confirmation, post-execution verification, provenance and audit evidence.
+
 ## Implemented
 
 - TypeScript monorepo foundation
@@ -28,6 +38,10 @@
 - Observability Adapter with in-memory traces
 - Plugin SDK
 - OipRuntime facade
+- Governed Capability Gateway with discovery, policy, tenant scope and verification
+- Official MCP transport exposing the governed capability surface
+- TanStack AI Memory middleware with tenant/user/thread-scoped OIP adapter
+- Injectable persistent MemoryAdapter provider through OipRuntime options
 - Commerce plugin
 - HR plugin
 - HTTP API
@@ -50,8 +64,10 @@ Current verification commands:
 
 ```bash
 npm run check
-npm test
+npm run build
+npm run test:all
 npm run demo
+npm pack --dry-run
 ```
 
 The test suite verifies:
@@ -74,11 +90,18 @@ The test suite verifies:
 - multi-plugin runtime with Commerce and HR
 - HTTP API health, capability discovery, chat, action execution and admin state
 - JSON-file persistence across runtime/API restarts
+- Capability Gateway discovery, policy enforcement, execution and verification
+- MCP in-memory and stdio transport initialization, discovery and governed invocation
+- TanStack AI Memory recall/save, tenant isolation and validated thread scope
+- Injectable MemoryAdapter provider through the public OipRuntime facade
+- npm package boundary excluding source tests, examples and documentation
+- Commerce demo execution through Capability Gateway with verified inventory evidence
 
 ## Still Mocked or In-Memory
 
 - Business persistence is in-memory
-- Conversation memory defaults to in-memory unless `OIP_DATA_DIR` is configured
+- Conversation memory defaults to in-memory unless `OIP_DATA_DIR` or an injectable
+  TanStack-compatible `MemoryAdapter` provider is configured
 - Audit log defaults to in-memory unless `OIP_DATA_DIR` is configured
 - Event bus defaults to in-memory unless `OIP_DATA_DIR` is configured
 - Observability traces are in-memory
@@ -89,7 +112,7 @@ The test suite verifies:
 
 ## Next Integrations
 
-- Replace in-memory stores with SQLite/PostgreSQL adapters
+- Configure a production durable memory provider (Redis or a compatible SQLite/PostgreSQL adapter)
 - Add ZVec adapter behind `VectorAdapter`
 - Add Docling/MarkItDown ingestion behind `DocumentAdapter`
 - Add OCR adapter behind `OcrAdapter`

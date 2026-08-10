@@ -6,6 +6,8 @@ Le format est base sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/) 
 
 ## [Unreleased]
 
+## [0.1.0-alpha.1] — 2026-08-10
+
 ### Added
 
 - Consumer Test Project (`consumer-test/`) to validate the external developer experience.
@@ -15,19 +17,23 @@ Le format est base sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/) 
 - Re-export of core helpers, plugin SDK and `MockLlmAdapter` from the main `@opaystech/oip` entry point.
 - `PlannedAction` index signature to make it compatible with `JsonObject`.
 - Validation report (`docs/oip-validation-report.md`).
+- Governed Capability Gateway with discovery, tenant scope, policy and post-execution verification.
+- Official MCP in-memory and stdio transports for the governed capability surface.
+- TanStack AI Memory middleware and tenant/user/thread-scoped OIP adapter.
+- Injectable TanStack-compatible persistent `MemoryAdapter` provider through `OipRuntime`.
+- Durable workflow runtime with execution observability and audit evidence.
 
 ### Changed
 
 - Public API entry points clarified: `@opaystech/oip` now covers the majority of consumer needs.
 - `PlannedAction` is now exported from `core/src/types.ts` and re-exported by `core/src/contracts/plan.ts`.
-
-### Changed
-
-- `package.json` : passage a `@opaystech/oip` en `v0.1.0-alpha`, exports conditionnels, configuration de publication GitHub Packages.
+- `package.json` : passage de `@opaystech/oip` en `v0.1.0-alpha.1`, exports conditionnels et configuration de publication GitHub Packages.
 - `tsconfig.json` : retrait des dossiers `apps/` et `plugins/` au profit d’une unique source de verite `packages/` + `examples/` + `tests/`.
 - `apps/api/` → `examples/api-demo/`.
 - `plugins/commerce/` et `plugins/hr/` → `examples/plugins/commerce/` et `examples/plugins/hr/`.
 - Mise a jour des scripts : `demo:api` remplace `dev:api`.
+- Démo Commerce alignée sur le Capability Gateway avec preuve d’exécution vérifiée.
+- Distribution npm limitée à `dist/`, `src/` et `README.md`, avec exclusion de `tests/`, `examples/` et `docs/`.
 
 ### Removed
 
@@ -59,5 +65,6 @@ Le format est base sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/) 
 Cette version est une **alpha technique**.  
 L’API publique n’est pas figee. Les prochaines iterations (beta, RC, stable) stabiliseront les contrats et la distribution packagee.
 
-[Unreleased]: https://github.com/opaystech-stack/OIP/compare/v0.1.0-alpha...HEAD
+[Unreleased]: https://github.com/opaystech-stack/OIP/compare/v0.1.0-alpha.1...HEAD
+[0.1.0-alpha.1]: https://github.com/opaystech-stack/OIP/releases/tag/v0.1.0-alpha.1
 [0.1.0-alpha]: https://github.com/opaystech-stack/OIP/releases/tag/v0.1.0-alpha

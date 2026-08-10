@@ -1,6 +1,6 @@
 {
   "name": "@opaystech/oip",
-  "version": "0.1.0-alpha",
+  "version": "0.1.0-alpha.1",
   "description": "Opays Intelligence Platform — programmable conversation engine for business applications",
   "type": "module",
   "main": "./dist/packages/runtime/src/index.js",
@@ -34,6 +34,14 @@
       "types": "./dist/packages/semantic-dispatcher/src/index.d.ts",
       "default": "./dist/packages/semantic-dispatcher/src/index.js"
     },
+    "./capability-gateway": {
+      "types": "./dist/packages/capability-gateway/src/index.d.ts",
+      "default": "./dist/packages/capability-gateway/src/index.js"
+    },
+    "./memory-runtime": {
+      "types": "./dist/packages/memory-runtime/src/index.d.ts",
+      "default": "./dist/packages/memory-runtime/src/index.js"
+    },
     "./hq-connector": {
       "types": "./dist/packages/hq-connector/src/index.d.ts",
       "default": "./dist/packages/hq-connector/src/index.js"
@@ -50,9 +58,10 @@
   },
   "files": [
     "dist",
+    "!dist/tests",
+    "!dist/examples",
     "src",
-    "docs",
-    "LICENSE"
+    "README.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -61,7 +70,7 @@
     "demo:api": "npm run build && node dist/examples/api-demo/src/index.js",
     "test": "npm run build && node dist/tests/oip-core.test.js",
     "test:builder": "npm run build && node dist/tests/runtime-builder.test.js",
-    "test:runtimes": "npm run build && node dist/tests/runtimes/identity-runtime.test.js && node dist/tests/runtimes/event-runtime.test.js && node dist/tests/runtimes/memory-runtime.test.js && node dist/tests/runtimes/context-runtime.test.js && node dist/tests/runtimes/decision-runtime.test.js && node dist/tests/runtimes/policy-runtime.test.js",
+    "test:runtimes": "npm run build && node dist/tests/runtimes/identity-runtime.test.js && node dist/tests/runtimes/event-runtime.test.js && node dist/tests/runtimes/memory-runtime.test.js && node dist/tests/runtimes/context-runtime.test.js && node dist/tests/runtimes/knowledge-runtime.test.js && node dist/tests/runtimes/decision-runtime.test.js && node dist/tests/runtimes/policy-runtime.test.js && node dist/tests/canonical-runtime.test.js && node dist/tests/provider-agent-registry.test.js && node dist/tests/durable-workflow-runtime.test.js",
     "test:composed": "npm run build && node dist/tests/composed-runtime.test.js",
     "test:public-api": "npm run build && node dist/tests/public-api.test.js",
     "test:hq-connector": "npm run build && node dist/tests/hq-connector.test.js",
@@ -72,7 +81,9 @@
     "test:semantic-router": "npm run build && node dist/tests/semantic-router.test.js",
     "test:semantic-copilotkit": "npm run build && node dist/tests/semantic-copilotkit.test.js",
     "test:semantic-function-calling": "npm run build && node dist/tests/semantic-function-calling.test.js",
-    "test:all": "npm run check && npm test && npm run test:builder && npm run test:runtimes && npm run test:composed && npm run test:public-api && npm run test:hq-connector && npm run test:hq-registry && npm run test:hq-router && npm run test:hq-orchestration && npm run test:semantic-dispatcher && npm run test:semantic-router && npm run test:semantic-copilotkit && npm run test:semantic-function-calling"
+    "test:capability-gateway": "npm run build && node dist/tests/capability-gateway.test.js",
+    "test:tanstack-memory": "npm run build && node dist/tests/tanstack-memory.test.js",
+    "test:all": "npm run check && npm test && npm run test:builder && npm run test:runtimes && npm run test:composed && npm run test:public-api && npm run test:hq-connector && npm run test:hq-registry && npm run test:hq-router && npm run test:hq-orchestration && npm run test:semantic-dispatcher && npm run test:semantic-router && npm run test:semantic-copilotkit && npm run test:semantic-function-calling && npm run test:tanstack-memory && npm run test:capability-gateway"
   },
   "repository": {
     "type": "git",
@@ -94,5 +105,22 @@
   "devDependencies": {
     "@types/node": "^26.1.1",
     "typescript": "^5.9.3"
-  }
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@tanstack/ai": "^0.43.1",
+    "@tanstack/ai-memory": "^0.1.0",
+    "zod": "^4.4.3"
+  },
+  "directories": {
+    "doc": "docs",
+    "example": "examples",
+    "test": "tests"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/opaystech-stack/OIP/issues"
+  },
+  "homepage": "https://github.com/opaystech-stack/OIP#readme"
 }

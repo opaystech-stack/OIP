@@ -45,6 +45,12 @@ function createDefaultWorkflowRuntime(): WorkflowRuntime {
     start: async () => {
       throw new Error("WorkflowRuntime not configured.");
     },
+    resume: async () => {
+      throw new Error("WorkflowRuntime not configured.");
+    },
+    compensate: async () => {
+      throw new Error("WorkflowRuntime not configured.");
+    },
     signal: async () => {
       throw new Error("WorkflowRuntime not configured.");
     },
@@ -155,9 +161,13 @@ export class OipRuntimeBuilder {
   }
 
   build(): OipRuntime {
-    return new OipRuntime(this.legacyOptions);
+    return new OipRuntime({
+      ...this.legacyOptions,
+      ...(this.runtimes.memory !== undefined ? { memoryRuntime: this.runtimes.memory } : {}),
+    });
   }
 
+  /** @deprecated Migration adapter. New applications must construct OipRuntime. */
   buildComposed(): ComposedRuntime {
     const identity = this.runtimes.identity ?? new InMemoryIdentityRuntime();
     const event = this.runtimes.event ?? new InMemoryEventRuntime();

@@ -20,6 +20,7 @@ import { InMemoryEventBus } from "../packages/event-bus/src/index.js";
 import { JsonFileAuditLog, JsonFileEventBus, JsonFileMemoryStore } from "../packages/file-store/src/index.js";
 import { MockOcrAdapter, PlainTextDocumentAdapter } from "../packages/document-adapters/src/index.js";
 import { InMemoryAutomationAdapter, InMemoryMcpAdapter } from "../packages/integration-adapters/src/index.js";
+import { InMemoryIdentityRuntime } from "../packages/identity-runtime/src/index.js";
 import { InMemoryKnowledgeSource, KnowledgeEngine } from "../packages/knowledge-engine/src/index.js";
 import { MockLlmAdapter, OpenAiCompatibleLlmAdapter } from "../packages/llm-adapter/src/index.js";
 import { LlmPlanner } from "../packages/planner/src/index.js";
@@ -272,29 +273,36 @@ const tests: readonly TestCase[] = [
     },
   },
   {
-    name: "Chat service runs context, planning and action execution end to end",
+    name: "Chat service runs the governed intent-to-action cycle",
     run: async () => {
-      const runtime = new OipRuntime().use(commercePluginModule);
+      const identity = new InMemoryIdentityRuntime();
+      identity.registerUser({
+        userId: "user-test",
+        organizationId: "org-test",
+        roles: ["inventory.manager"],
+      });
+      const runtime = new OipRuntime({ identity }).use(commercePluginModule);
       const chat = new ChatService(
         runtime,
         new MockLlmAdapter(() => ({
-          capabilityId: "commerce.inventory.add",
-          arguments: {
-            itemName: "bidons de peinture",
-            quantity: 6,
-          },
+          type: "command",
+          goal: "inventory replenishment",
           confidence: 0.93,
-          reason: "End-to-end chat test.",
+          entities: [
+            { name: "itemName", value: "bidons de peinture" },
+            { name: "quantity", value: 6 },
+          ],
         })),
       );
 
       const response = await chat.handle({
         input: "Ajoute 6 bidons de peinture au stock",
         context: createContext(["inventory.manager"]),
+        headers: { authorization: "Bearer user-test" },
       });
       const memory = await runtime.memory.recent(createContext(["inventory.manager"]), 5);
 
-      assertEqual(response.message, "Action executee avec succes.");
+      assertEqual(response.message, "Action executed successfully.");
       assertEqual(response.plan.capabilityId, "commerce.inventory.add");
       assertEqual(response.action.status, "completed");
       assertEqual(memory[0]?.input, "Ajoute 6 bidons de peinture au stock");
@@ -458,9 +466,28 @@ const tests: readonly TestCase[] = [
     },
   },
   {
-    name: "API server exposes health, capabilities, chat and admin state",
+    name: "API server exposes governed chat and retires direct action execution",
     run: async () => {
-      const server = startApiServer({ port: 0 });
+      const identity = new InMemoryIdentityRuntime();
+      identity.registerUser({
+        userId: "api-manager",
+        organizationId: "opays-demo",
+        roles: ["inventory.manager"],
+      });
+      const runtime = new OipRuntime({ identity }).use(commercePluginModule).use(hrPluginModule);
+      const server = startApiServer({
+        port: 0,
+        runtime,
+        llm: new MockLlmAdapter(() => ({
+          type: "command",
+          goal: "inventory replenishment",
+          confidence: 0.9,
+          entities: [
+            { name: "itemName", value: "sacs de ciment" },
+            { name: "quantity", value: 20 },
+          ],
+        })),
+      });
 
       try {
         await waitForServer();
@@ -477,31 +504,15 @@ const tests: readonly TestCase[] = [
           method: "POST",
           body: JSON.stringify({
             input: "Ajoute 20 sacs de ciment au stock",
-            user: {
-              userId: "user-001",
-              organizationId: "opays-demo",
-              roles: ["inventory.manager"],
-              locale: "fr-CD",
-            },
           }),
+          headers: { authorization: "Bearer api-manager" },
         });
-        const action = await fetchJson(`${baseUrl}/actions`, {
+        const actionResponse = await fetch(`${baseUrl}/actions`, {
           method: "POST",
-          body: JSON.stringify({
-            capabilityId: "hr.employee.create",
-            arguments: {
-              fullName: "Grace Mbala",
-              role: "RH",
-            },
-            confirmedCapabilities: ["hr.employee.create"],
-            user: {
-              userId: "user-hr",
-              organizationId: "opays-demo",
-              roles: ["hr.manager"],
-              locale: "fr-CD",
-            },
-          }),
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({}),
         });
+        const action = await actionResponse.json() as Record<string, unknown>;
         const audit = await fetchJson(`${baseUrl}/admin/audit`);
         const traces = await fetchJson(`${baseUrl}/admin/traces`);
         const events = await fetchJson(`${baseUrl}/admin/events`);
@@ -509,7 +520,8 @@ const tests: readonly TestCase[] = [
         assertEqual(health.status, "ok");
         assertEqual(Array.isArray(capabilities.capabilities), true);
         assertEqual(getObject(chat.action).status, "completed");
-        assertEqual(action.status, "completed");
+        assertEqual(actionResponse.status, 410);
+        assertEqual(action.error, "Direct capability execution is retired. Submit an intention through the governed runtime.");
         assertEqual(Array.isArray(audit.records), true);
         assertEqual(Array.isArray(traces.traces), true);
       assertEqual(Array.isArray(events.events), true);
@@ -525,21 +537,28 @@ const tests: readonly TestCase[] = [
       const memoryPath = join(directory, "memory.json");
       const auditPath = join(directory, "audit.json");
       const eventsPath = join(directory, "events.json");
+      const identity = new InMemoryIdentityRuntime();
+      identity.registerUser({
+        userId: "user-test",
+        organizationId: "org-test",
+        roles: ["inventory.manager"],
+      });
       const firstRuntime = new OipRuntime({
         memory: new JsonFileMemoryStore(memoryPath),
         audit: new JsonFileAuditLog(auditPath),
         events: new JsonFileEventBus(eventsPath),
+        identity,
       }).use(commercePluginModule);
       const chat = new ChatService(
         firstRuntime,
         new MockLlmAdapter(() => ({
-          capabilityId: "commerce.inventory.add",
-          arguments: {
-            itemName: "sacs de ciment",
-            quantity: 3,
-          },
+          type: "command",
+          goal: "inventory replenishment",
           confidence: 0.9,
-          reason: "Persistence test.",
+          entities: [
+            { name: "itemName", value: "sacs de ciment" },
+            { name: "quantity", value: 3 },
+          ],
         })),
       );
       const context = createContext(["inventory.manager"]);
@@ -547,6 +566,7 @@ const tests: readonly TestCase[] = [
       await chat.handle({
         input: "Ajoute 3 sacs de ciment au stock",
         context,
+        headers: { authorization: "Bearer user-test" },
       });
 
       const secondRuntime = new OipRuntime({
