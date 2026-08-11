@@ -3,6 +3,8 @@ import type {
   CapabilityDescriptor,
   CapabilityGatewayAudit,
   CapabilityVerification,
+  CapabilityAvailability,
+  CapabilityProcedure,
 } from "@opaystech/oip/capability-gateway";
 import type {
   ActionResult,
@@ -13,6 +15,7 @@ import type {
   PlannedAction,
 } from "@opaystech/oip";
 import type { OdooMcpContextFactory } from "./mcp.js";
+import { GoogleWorkspaceError, type GoogleWorkspaceExecutor, type GoogleWorkspaceCapabilityId } from "./google-workspace.js";
 import { OdooJsonRpcError, type OdooExecutor, toJsonObject, toJsonValue } from "./odoo-jsonrpc.js";
 
 export const OIP_RELEASE = "0.1.0-alpha.1";
@@ -25,6 +28,7 @@ export interface OdooGatewayOptions {
   readonly organizationId?: string;
   readonly roles?: readonly string[];
   readonly requiredRole?: string;
+  readonly googleWorkspace?: GoogleWorkspaceExecutor;
   readonly audit?: CapabilityGatewayAudit;
 }
 
@@ -71,11 +75,13 @@ export function createOdooGateway(options: OdooGatewayOptions): OdooGatewayBundl
     database: options.database,
     organizationId,
     requiredRole,
+    ...(options.googleWorkspace !== undefined ? { googleWorkspace: options.googleWorkspace } : {}),
   });
   const policy = createPolicies(descriptors, requiredRole);
   const action = createOdooActionRuntime(options.client, descriptors, {
     database: options.database,
     organizationId,
+    ...(options.googleWorkspace !== undefined ? { googleWorkspace: options.googleWorkspace } : {}),
   });
 
   const gateway = new CapabilityGateway({
@@ -141,12 +147,21 @@ function createPolicies(
 function createOdooActionRuntime(
   client: OdooExecutor,
   descriptors: readonly CapabilityDescriptor[],
-  options: { readonly database: string; readonly organizationId: string },
+  options: { readonly database: string; readonly organizationId: string; readonly googleWorkspace?: GoogleWorkspaceExecutor },
 ): OdooActionRuntime {
   const handlers = new Map<string, OdooHandler>([
     ["odoo.contacts.search", (args, context) => searchContacts(client, options, args, context)],
     ["odoo.crm.leads.create", (args, context) => createCrmLead(client, options, args, context)],
     ["odoo.projects.tasks.read", (args, context) => readProjectsAndTasks(client, options, args, context)],
+    ["odoo.discuss.channels.read", (args, context) => readDiscussChannels(client, options, args, context)],
+    ["odoo.discuss.messages.read", (args, context) => readDiscussMessages(client, options, args, context)],
+    ["odoo.discuss.message.post", (args, context) => postDiscussMessage(client, options, args, context)],
+    ["google.calendar.event.create", (args, context) => invokeGoogleCapability("google.calendar.event.create", options.googleWorkspace, options, args, context)],
+    ["google.calendar.events.read", (args, context) => invokeGoogleCapability("google.calendar.events.read", options.googleWorkspace, options, args, context)],
+    ["google.gmail.send", (args, context) => invokeGoogleCapability("google.gmail.send", options.googleWorkspace, options, args, context)],
+    ["google.gmail.read", (args, context) => invokeGoogleCapability("google.gmail.read", options.googleWorkspace, options, args, context)],
+    ["google.drive.docs.read", (args, context) => invokeGoogleCapability("google.drive.docs.read", options.googleWorkspace, options, args, context)],
+    ["google.sheets.update", (args, context) => invokeGoogleCapability("google.sheets.update", options.googleWorkspace, options, args, context)],
     ["odoo.accounting.debts.read", (args, context) => readAccountingDebts(client, options, args, context)],
     ["odoo.hr.employees.read", (args, context) => readEmployees(client, options, args, context)],
   ]);
@@ -169,6 +184,9 @@ function createOdooActionRuntime(
       } catch (error) {
         if (error instanceof OdooJsonRpcError) {
           return rejected(action.capabilityId, `odoo_${error.code}`);
+        }
+        if (error instanceof GoogleWorkspaceError) {
+          return rejected(action.capabilityId, `google_${error.code}`);
         }
         return rejected(action.capabilityId, "odoo_execution_failed");
       }
@@ -211,12 +229,30 @@ class OdooPolicyRuntime implements OdooPolicyRuntimePort {
 
 function createOdooDescriptors(
   client: OdooExecutor,
-  options: { readonly database: string; readonly organizationId: string; readonly requiredRole: string },
+  options: { readonly database: string; readonly organizationId: string; readonly requiredRole: string; readonly googleWorkspace?: GoogleWorkspaceExecutor },
 ): readonly CapabilityDescriptor[] {
   const verification = async (
     result: ActionResult,
     context: ExecutionContext,
   ) => verifyOdooResult(result, context, options.database);
+  const googleVerification = async (
+    result: ActionResult,
+    context: ExecutionContext,
+  ) => verifyGoogleResult(result, context);
+  const googleConfigured = options.googleWorkspace !== undefined;
+  const googleSetupProcedure: CapabilityProcedure = {
+    id: "google.workspace.oauth2.setup",
+    type: "manual",
+    title: "Authorize Google Workspace",
+    summary: "Provide a Google OAuth2 refresh token with the Calendar, Gmail, Docs and Sheets scopes.",
+    steps: [
+      "Enable Gmail, Calendar, Drive/Docs and Sheets APIs in the Google Cloud project.",
+      "Create a desktop or web OAuth client and authorize the exact redirect URI used by the deployment.",
+      "Inject GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REFRESH_TOKEN through the Dokploy secret store.",
+      "Re-run the capability smoke test and verify a read-only Calendar/Gmail call before enabling writes.",
+    ],
+    prerequisites: ["Google OAuth client", "Workspace administrator approval when required", "All requested APIs enabled"],
+  };
 
   return [
     descriptor({
@@ -268,6 +304,153 @@ function createOdooDescriptors(
       verification,
     }),
     descriptor({
+      id: "odoo.discuss.channels.read",
+      description: "Read Odoo Discuss channels in the governed opays_hq tenant.",
+      keywords: ["discuss", "channels", "channel", "discussion", "team communication", "canaux"],
+      aliases: ["read discuss channels", "show team channels", "lire les canaux de discussion"],
+      parameters: [
+        { name: "query", type: "string", required: false, description: "Channel name fragment." },
+        { name: "limit", type: "number", required: false, description: "Maximum number of channels, from 1 to 100." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification,
+    }),
+    descriptor({
+      id: "odoo.discuss.messages.read",
+      description: "Read messages from an Odoo Discuss channel in the governed opays_hq tenant.",
+      keywords: ["discuss", "messages", "message", "discussion", "conversation", "messages"],
+      aliases: ["read discuss messages", "show channel messages", "lire les messages du canal"],
+      parameters: [
+        { name: "channelId", type: "number", required: true, description: "Odoo discuss.channel id." },
+        { name: "limit", type: "number", required: false, description: "Maximum number of messages, from 1 to 100." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification,
+    }),
+    descriptor({
+      id: "odoo.discuss.message.post",
+      description: "Post a message to an Odoo Discuss channel after trusted confirmation.",
+      keywords: ["discuss", "message", "post", "reply", "discussion", "répondre"],
+      aliases: ["post discuss message", "reply in channel", "répondre dans le canal"],
+      parameters: [
+        { name: "channelId", type: "number", required: true, description: "Odoo discuss.channel id." },
+        { name: "body", type: "string", required: true, description: "Message body, maximum 10,000 characters." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "high",
+      sideEffects: ["Creates one mail.message record in the selected Odoo Discuss channel."],
+      emits: ["odoo.discuss.message.posted"],
+      verification,
+    }),
+    googleDescriptor({
+      id: "google.calendar.event.create",
+      description: "Create a Google Calendar event after trusted confirmation.",
+      keywords: ["google", "calendar", "event", "meeting", "appointment", "rendez-vous"],
+      aliases: ["create calendar event", "schedule meeting", "planifier un rendez-vous"],
+      parameters: [
+        { name: "calendarId", type: "string", required: false, description: "Calendar id; defaults to primary." },
+        { name: "summary", type: "string", required: true, description: "Event title." },
+        { name: "start", type: "string", required: true, description: "ISO 8601 start with timezone." },
+        { name: "end", type: "string", required: true, description: "ISO 8601 end with timezone." },
+        { name: "timeZone", type: "string", required: false, description: "IANA timezone." },
+        { name: "description", type: "string", required: false, description: "Event description." },
+        { name: "location", type: "string", required: false, description: "Event location." },
+        { name: "attendees", type: "array", required: false, description: "Google Calendar attendee objects." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "high",
+      sideEffects: ["Creates one Google Calendar event."],
+      emits: ["google.calendar.event.created"],
+      verification: googleVerification,
+    }, googleConfigured, googleSetupProcedure),
+    googleDescriptor({
+      id: "google.calendar.events.read",
+      description: "Read bounded Google Calendar events.",
+      keywords: ["google", "calendar", "events", "agenda", "meetings", "rendez-vous"],
+      aliases: ["read calendar", "list meetings", "lire le calendrier"],
+      parameters: [
+        { name: "calendarId", type: "string", required: false, description: "Calendar id; defaults to primary." },
+        { name: "timeMin", type: "string", required: false, description: "ISO 8601 lower bound." },
+        { name: "timeMax", type: "string", required: false, description: "ISO 8601 upper bound." },
+        { name: "maxResults", type: "number", required: false, description: "Maximum events, from 1 to 100." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification: googleVerification,
+    }, googleConfigured, googleSetupProcedure),
+    googleDescriptor({
+      id: "google.gmail.send",
+      description: "Send a Gmail message after trusted confirmation.",
+      keywords: ["google", "gmail", "email", "mail", "send", "envoyer"],
+      aliases: ["send email", "send gmail", "envoyer un e-mail"],
+      parameters: [
+        { name: "to", type: "string", required: true, description: "Recipient address or RFC 2822 recipient list." },
+        { name: "subject", type: "string", required: true, description: "Email subject." },
+        { name: "body", type: "string", required: true, description: "Email body." },
+        { name: "html", type: "boolean", required: false, description: "Send as HTML when true." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "high",
+      sideEffects: ["Sends one Gmail message."],
+      emits: ["google.gmail.message.sent"],
+      verification: googleVerification,
+    }, googleConfigured, googleSetupProcedure),
+    googleDescriptor({
+      id: "google.gmail.read",
+      description: "Read bounded Gmail message summaries.",
+      keywords: ["google", "gmail", "email", "mail", "inbox", "e-mails"],
+      aliases: ["read gmail", "search email", "lire les e-mails"],
+      parameters: [
+        { name: "query", type: "string", required: false, description: "Gmail search query." },
+        { name: "maxResults", type: "number", required: false, description: "Maximum messages, from 1 to 100." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification: googleVerification,
+    }, googleConfigured, googleSetupProcedure),
+    googleDescriptor({
+      id: "google.drive.docs.read",
+      description: "Read bounded text from a Google Doc by document id.",
+      keywords: ["google", "drive", "docs", "document", "read", "document"],
+      aliases: ["read google doc", "read drive document", "lire un document Drive"],
+      parameters: [
+        { name: "documentId", type: "string", required: true, description: "Google Docs document id." },
+        { name: "maxChars", type: "number", required: false, description: "Maximum returned characters, from 1 to 100000." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification: googleVerification,
+    }, googleConfigured, googleSetupProcedure),
+    googleDescriptor({
+      id: "google.sheets.update",
+      description: "Update a Google Sheets range after trusted confirmation.",
+      keywords: ["google", "sheets", "spreadsheet", "update", "tableur", "modifier"],
+      aliases: ["update sheet", "write spreadsheet", "mettre à jour un tableur"],
+      parameters: [
+        { name: "spreadsheetId", type: "string", required: true, description: "Google Sheets spreadsheet id." },
+        { name: "range", type: "string", required: true, description: "A1 notation range." },
+        { name: "values", type: "array", required: true, description: "Rows and cell values." },
+        { name: "valueInputOption", type: "string", required: false, description: "RAW or USER_ENTERED." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "high",
+      sideEffects: ["Updates one Google Sheets range."],
+      emits: ["google.sheets.range.updated"],
+      verification: googleVerification,
+    }, googleConfigured, googleSetupProcedure),
+    descriptor({
       id: "odoo.accounting.debts.read",
       description: "Read posted unpaid customer and vendor invoices as governed Odoo debts.",
       keywords: ["accounting", "debts", "debt", "invoices", "unpaid", "comptabilité", "dettes", "factures"],
@@ -312,6 +495,51 @@ function descriptor(
     availability: "available",
     tenantScope: { organizationIds: [OIP_ORGANIZATION_ID] },
   };
+}
+
+function googleDescriptor(
+  definition: CapabilityDefinition & {
+    readonly keywords: readonly string[];
+    readonly aliases: readonly string[];
+    readonly verification: CapabilityDescriptor["verification"];
+  },
+  configured: boolean,
+  setupProcedure: CapabilityProcedure,
+): Omit<CapabilityDescriptor, "source"> {
+  const base = descriptor(definition);
+  return {
+    ...base,
+    availability: configured ? "available" : "needs_setup",
+    ...(configured ? {} : { setupProcedure }),
+  };
+}
+
+async function invokeGoogleCapability(
+  capabilityId: GoogleWorkspaceCapabilityId,
+  executor: GoogleWorkspaceExecutor | undefined,
+  options: { readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const allowedArguments: Record<GoogleWorkspaceCapabilityId, readonly string[]> = {
+    "google.calendar.event.create": ["calendarId", "summary", "start", "end", "timeZone", "description", "location", "attendees"],
+    "google.calendar.events.read": ["calendarId", "timeMin", "timeMax", "maxResults"],
+    "google.gmail.send": ["to", "subject", "body", "html"],
+    "google.gmail.read": ["query", "maxResults"],
+    "google.drive.docs.read": ["documentId", "maxChars"],
+    "google.sheets.update": ["spreadsheetId", "range", "values", "valueInputOption"],
+  };
+  const validation = validateArguments(args, allowedArguments[capabilityId]);
+  if (validation) return rejected(capabilityId, validation);
+  if (executor === undefined) return rejected(capabilityId, "google_workspace_not_configured");
+
+  const payload = await executor.execute(capabilityId, args);
+  return completed(capabilityId, {
+    source: "google.workspace",
+    organizationId: options.organizationId,
+    tenantVerified: context.identity.organizationId === options.organizationId,
+    ...payload,
+  });
 }
 
 async function searchContacts(
@@ -379,7 +607,7 @@ async function readProjectsAndTasks(
   const projectDomain: unknown[] = projectId === undefined ? [] : [["id", "=", projectId]];
   const taskDomain: unknown[] = projectId === undefined ? [] : [["project_id", "=", projectId]];
   const projects = await searchRead(client, "project.project", projectDomain, ["id", "name", "active"], limit);
-  const tasks = await searchRead(client, "project.task", taskDomain, ["id", "name", "project_id", "stage_id", "user_ids", "active"], limit);
+  const tasks = await searchRead(client, "project.task", taskDomain, ["id", "name", "project_id", "stage_id", "active"], limit);
 
   return completed("odoo.projects.tasks.read", {
     ...baseData(options, context, "project.project,project.task"),
@@ -387,6 +615,79 @@ async function readProjectsAndTasks(
     tasks: jsonRows(tasks),
     projectCount: projects.length,
     taskCount: tasks.length,
+  });
+}
+
+async function readDiscussChannels(
+  client: OdooExecutor,
+  options: { readonly database: string; readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const validation = validateArguments(args, ["query", "limit"]);
+  if (validation) return rejected("odoo.discuss.channels.read", validation);
+
+  const query = optionalString(args.query);
+  const limit = boundedLimit(args.limit);
+  const domain: unknown[] = query ? [["name", "ilike", query]] : [];
+  const records = await searchRead(client, "discuss.channel", domain, ["id", "name", "channel_type", "uuid", "active"], limit);
+  return completed("odoo.discuss.channels.read", collectionData(options, context, "discuss.channel", records));
+}
+
+async function readDiscussMessages(
+  client: OdooExecutor,
+  options: { readonly database: string; readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const validation = validateArguments(args, ["channelId", "limit"]);
+  if (validation) return rejected("odoo.discuss.messages.read", validation);
+
+  const channelId = requiredNumber(args.channelId);
+  const limit = boundedLimit(args.limit);
+  const records = await searchRead(
+    client,
+    "mail.message",
+    [["channel_id", "=", channelId]],
+    ["id", "channel_id", "body", "message_type", "date"],
+    limit,
+  );
+  return completed("odoo.discuss.messages.read", collectionData(options, context, "mail.message", records));
+}
+
+async function postDiscussMessage(
+  client: OdooExecutor,
+  options: { readonly database: string; readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const validation = validateArguments(args, ["channelId", "body"]);
+  if (validation) return rejected("odoo.discuss.message.post", validation);
+
+  const channelId = requiredNumber(args.channelId);
+  const body = requiredString(args.body);
+  if (body.length > 10_000) return rejected("odoo.discuss.message.post", "body_too_long");
+
+  const created = await client.executeKw(
+    "discuss.channel",
+    "message_post",
+    [[channelId]],
+    {
+      body,
+      message_type: "comment",
+      subtype_xmlid: "mail.mt_comment",
+    },
+  );
+  const messageId = typeof created === "number" ? created : undefined;
+  if (messageId === undefined) return rejected("odoo.discuss.message.post", "post_result_invalid");
+
+  const rows = await searchRead(client, "mail.message", [["id", "=", messageId]], ["id", "channel_id", "body", "message_type", "date"], 1);
+  if (rows.length !== 1) return rejected("odoo.discuss.message.post", "post_verification_failed");
+
+  return completed("odoo.discuss.message.post", {
+    ...baseData(options, context, "discuss.channel,mail.message"),
+    messageId,
+    writeVerified: true,
   });
 }
 
@@ -551,6 +852,29 @@ async function verifyOdooResult(
       database: typeof data?.database === "string" ? data.database : "unknown",
       organizationId: context.identity.organizationId,
       recordCount: typeof data?.recordCount === "number" ? data.recordCount : 0,
+      tenantVerified: data?.tenantVerified === true,
+    },
+  };
+}
+
+async function verifyGoogleResult(
+  result: ActionResult,
+  context: ExecutionContext,
+): Promise<CapabilityVerification> {
+  const data = result.data;
+  const verified = result.status === "completed"
+    && data?.source === "google.workspace"
+    && data.organizationId === context.identity.organizationId
+    && data.tenantVerified === true;
+
+  return {
+    verified,
+    summary: verified
+      ? "Google Workspace returned a result verified against the server-derived tenant scope."
+      : "The Google Workspace result could not be verified against the server-derived tenant scope.",
+    evidence: {
+      source: typeof data?.source === "string" ? data.source : "unknown",
+      organizationId: context.identity.organizationId,
       tenantVerified: data?.tenantVerified === true,
     },
   };
