@@ -5,7 +5,7 @@ import type { JsonObject } from "../packages/core/src/contracts/common.js";
 import type { GoogleWorkspaceExecutor, GoogleWorkspaceCapabilityId } from "../services/odoo-mcp/src/google-workspace.js";
 
 class FakeOdoo implements OdooExecutor {
-  calls: Array<{ model: string; method: string; kwargs?: JsonObject }> = [];
+  calls: Array<{ model: string; method: string; args: readonly unknown[]; kwargs?: JsonObject }> = [];
 
   async executeKw(
     model: string,
@@ -13,7 +13,7 @@ class FakeOdoo implements OdooExecutor {
     args: readonly unknown[],
     kwargs: JsonObject = {},
   ): Promise<unknown> {
-    this.calls.push({ model, method, kwargs });
+    this.calls.push({ model, method, args, kwargs });
     if (method === "search_read") {
       if (model === "res.partner") return [{ id: 1, name: "Acme", email: "contact@acme.test" }];
       if (model === "project.project") return [{ id: 2, name: "HQ", active: true }];
@@ -106,6 +106,9 @@ const messages = await bundle.gateway.invoke({
 }, context);
 assert.equal(messages.status, "completed");
 assert.equal(messages.evidence?.verified, true);
+const messageRead = fake.calls.find((call) => call.model === "mail.message" && call.method === "search_read");
+assert.ok(messageRead);
+assert.deepEqual(messageRead.args[0], [["model", "=", "discuss.channel"], ["res_id", "=", 7]]);
 
 const callsBeforeDiscussPost = fake.calls.length;
 const post = await bundle.gateway.invoke({

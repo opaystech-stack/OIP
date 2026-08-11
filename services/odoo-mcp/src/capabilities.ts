@@ -648,7 +648,7 @@ async function readDiscussMessages(
   const records = await searchRead(
     client,
     "mail.message",
-    [["channel_id", "=", channelId]],
+    [["model", "=", "discuss.channel"], ["res_id", "=", channelId]],
     ["id", "channel_id", "body", "message_type", "date"],
     limit,
   );
