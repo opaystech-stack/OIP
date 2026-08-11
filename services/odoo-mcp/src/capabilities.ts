@@ -604,9 +604,19 @@ async function readProjectsAndTasks(
 
   const projectId = args.projectId === undefined ? undefined : requiredNumber(args.projectId);
   const limit = boundedLimit(args.limit);
-  const projectDomain: unknown[] = projectId === undefined ? [] : [["id", "=", projectId]];
-  const taskDomain: unknown[] = projectId === undefined ? [] : [["project_id", "=", projectId]];
+  const projectDomain: unknown[] = [["active", "=", true]];
+  if (projectId !== undefined) projectDomain.push(["id", "=", projectId]);
   const projects = await searchRead(client, "project.project", projectDomain, ["id", "name", "active"], limit);
+
+  const activeProjectIds = projects
+    .map((project) => project.id)
+    .filter((value): value is number => typeof value === "number");
+  const taskDomain: unknown[] = [["active", "=", true]];
+  if (projectId !== undefined) {
+    taskDomain.push(["project_id", "=", projectId]);
+  } else {
+    taskDomain.push(["project_id", "in", activeProjectIds]);
+  }
   const tasks = await searchRead(client, "project.task", taskDomain, ["id", "name", "project_id", "stage_id", "active"], limit);
 
   return completed("odoo.projects.tasks.read", {
@@ -732,7 +742,7 @@ async function readEmployees(
   const limit = boundedLimit(args.limit);
   const domain: unknown[] = [["active", "=", true]];
   if (query) domain.push("|", ["name", "ilike", query], ["work_email", "ilike", query]);
-  const records = await searchRead(client, "hr.employee", domain, ["id", "name", "job_title", "department_id", "work_email", "active"], limit);
+  const records = await searchRead(client, "hr.employee", domain, ["id", "name", "work_email", "active"], limit);
   return completed("odoo.hr.employees.read", collectionData(options, context, "hr.employee", records));
 }
 

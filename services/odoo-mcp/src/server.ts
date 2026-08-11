@@ -254,8 +254,12 @@ function loadGoogleWorkspace(env: NodeJS.ProcessEnv): GoogleWorkspaceExecutor | 
   const clientId = env.GOOGLE_CLIENT_ID;
   const clientSecret = env.GOOGLE_CLIENT_SECRET;
   const refreshToken = env.GOOGLE_REFRESH_TOKEN;
-  if (clientId === undefined && clientSecret === undefined && refreshToken === undefined) return undefined;
-  if (!clientId || !clientSecret || !refreshToken) throw new Error("Google Workspace OAuth configuration is incomplete.");
+  const hasPartialConfiguration = [clientId, clientSecret, refreshToken].some((value) => typeof value === "string" && value.length > 0);
+  if (!hasPartialConfiguration) return undefined;
+  // A client id/secret can be staged before the user completes the consent flow.
+  // Keep Google capabilities in needs_setup until a refresh token is present;
+  // never crash the Odoo MCP service because OAuth preparation is incomplete.
+  if (!clientId || !clientSecret || !refreshToken) return undefined;
   return createGoogleWorkspaceClient({ clientId, clientSecret, refreshToken });
 }
 

@@ -17,7 +17,7 @@ class FakeOdoo implements OdooExecutor {
     if (method === "search_read") {
       if (model === "res.partner") return [{ id: 1, name: "Acme", email: "contact@acme.test" }];
       if (model === "project.project") return [{ id: 2, name: "HQ", active: true }];
-      if (model === "project.task") return [{ id: 3, name: "Prepare OIP", project_id: [2, "HQ"] }];
+      if (model === "project.task") return [{ id: 3, name: "Prepare OIP", project_id: [2, "HQ"], active: true }];
       if (model === "discuss.channel") return [{ id: 7, name: "Opays Team", channel_type: "channel", uuid: "channel-7", active: true }];
       if (model === "mail.message") return [{ id: 9, channel_id: [7, "Opays Team"], body: "Hello", message_type: "comment", date: "2026-08-11 07:00:00" }];
       if (model === "account.move") return [{ id: 4, name: "INV/2026/001", amount_residual: 120 }];
@@ -91,6 +91,10 @@ assert.equal(projects.evidence?.verified, true);
 const taskRead = fake.calls.find((call) => call.model === "project.task" && call.method === "search_read");
 assert.ok(taskRead);
 assert.equal((taskRead.kwargs?.fields as readonly string[]).includes("user_ids"), false);
+assert.deepEqual(taskRead.args[0], [["active", "=", true], ["project_id", "=", 2]]);
+const projectRead = fake.calls.find((call) => call.model === "project.project" && call.method === "search_read");
+assert.ok(projectRead);
+assert.deepEqual(projectRead.args[0], [["active", "=", true], ["id", "=", 2]]);
 
 const channels = await bundle.gateway.invoke({
   capabilityId: "odoo.discuss.channels.read",
@@ -131,6 +135,9 @@ const employees = await bundle.gateway.invoke({
 }, context);
 assert.equal(employees.status, "completed");
 assert.equal(employees.evidence?.verified, true);
+const employeeRead = fake.calls.find((call) => call.model === "hr.employee" && call.method === "search_read");
+assert.ok(employeeRead);
+assert.deepEqual(employeeRead.kwargs?.fields, ["id", "name", "work_email", "active"]);
 
 const googleEventsWithoutSetup = await bundle.gateway.invoke({
   capabilityId: "google.calendar.events.read",
