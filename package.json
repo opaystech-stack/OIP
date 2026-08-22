@@ -105,12 +105,14 @@
   ],
   "devDependencies": {
     "@types/node": "^26.1.1",
+    "@types/nodemailer": "^8.0.1",
     "typescript": "^5.9.3"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@tanstack/ai": "^0.43.1",
     "@tanstack/ai-memory": "^0.1.0",
+    "nodemailer": "^6.10.1",
     "zod": "^4.4.3"
   },
   "directories": {
