@@ -149,6 +149,8 @@ function createOdooActionRuntime(
     ["odoo.projects.tasks.read", (args, context) => readProjectsAndTasks(client, options, args, context)],
     ["odoo.accounting.debts.read", (args, context) => readAccountingDebts(client, options, args, context)],
     ["odoo.hr.employees.read", (args, context) => readEmployees(client, options, args, context)],
+    ["odoo.crm.leads.read", (args, context) => searchCrmLeads(client, options, args, context)],
+    ["odoo.sales.orders.read", (args, context) => searchSalesOrders(client, options, args, context)],
   ]);
   const descriptorIds = new Set(descriptors.map((descriptor) => descriptor.id));
 
@@ -297,6 +299,40 @@ function createOdooDescriptors(
       emits: [],
       verification,
     }),
+    descriptor({
+      id: "odoo.crm.leads.read",
+      description: "Search and read Odoo CRM leads and opportunities in the governed opays_hq tenant.",
+      keywords: ["crm", "lead", "leads", "opportunity", "opportunities", "prospect", "pipeline", "pistes", "opportunités"],
+      aliases: ["read leads", "search leads", "lire les pistes", "lire les opportunités"],
+      parameters: [
+        { name: "query", type: "string", required: false, description: "Name or contact email fragment." },
+        { name: "stageId", type: "number", required: false, description: "Optional CRM stage id." },
+        { name: "includeWon", type: "boolean", required: false, description: "Include won opportunities (default: false, open pipeline only)." },
+        { name: "limit", type: "number", required: false, description: "Maximum number of leads, from 1 to 100." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification,
+    }),
+    descriptor({
+      id: "odoo.sales.orders.read",
+      description: "Search and read Odoo sales quotations and orders in the governed opays_hq tenant.",
+      keywords: ["sales", "sale", "order", "orders", "quotation", "quotations", "quote", "devis", "ventes", "commandes"],
+      aliases: ["read sales orders", "read quotations", "lire les devis", "lire les commandes"],
+      parameters: [
+        { name: "query", type: "string", required: false, description: "Order reference or customer name fragment." },
+        { name: "partnerId", type: "number", required: false, description: "Optional Odoo partner id." },
+        { name: "state", type: "string", required: false, description: "Optional state filter: draft, sent, sale, cancel." },
+        { name: "limit", type: "number", required: false, description: "Maximum number of orders, from 1 to 100." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification,
+    }),
   ].map((item) => ({ ...item, source: "services/odoo-mcp" }));
 }
 
@@ -433,6 +469,65 @@ async function readEmployees(
   if (query) domain.push("|", ["name", "ilike", query], ["work_email", "ilike", query]);
   const records = await searchRead(client, "hr.employee", domain, ["id", "name", "job_title", "department_id", "work_email", "active"], limit);
   return completed("odoo.hr.employees.read", collectionData(options, context, "hr.employee", records));
+}
+
+async function searchCrmLeads(
+  client: OdooExecutor,
+  options: { readonly database: string; readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const validation = validateArguments(args, ["query", "stageId", "includeWon", "limit"]);
+  if (validation) return rejected("odoo.crm.leads.read", validation);
+
+  const query = optionalString(args.query);
+  const stageId = args.stageId === undefined ? undefined : requiredNumber(args.stageId);
+  const includeWon = args.includeWon === true;
+  const limit = boundedLimit(args.limit);
+  const domain: unknown[] = [];
+  if (!includeWon) domain.push(["probability", "<", 100]);
+  if (stageId !== undefined) domain.push(["stage_id", "=", stageId]);
+  if (query) {
+    // Prefix notation: appending "| leaf leaf" keeps the implicit AND with prior terms.
+    domain.push("|", ["name", "ilike", query], ["email_from", "ilike", query]);
+  }
+  const records = await searchRead(
+    client,
+    "crm.lead",
+    domain,
+    ["id", "name", "type", "stage_id", "partner_id", "email_from", "phone", "expected_revenue", "probability", "active"],
+    limit,
+  );
+  return completed("odoo.crm.leads.read", collectionData(options, context, "crm.lead", records));
+}
+
+async function searchSalesOrders(
+  client: OdooExecutor,
+  options: { readonly database: string; readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const validation = validateArguments(args, ["query", "partnerId", "state", "limit"]);
+  if (validation) return rejected("odoo.sales.orders.read", validation);
+
+  const query = optionalString(args.query);
+  const partnerId = args.partnerId === undefined ? undefined : requiredNumber(args.partnerId);
+  const state = optionalString(args.state);
+  if (state !== undefined && !["draft", "sent", "sale", "cancel"].includes(state)) {
+    return rejected("odoo.sales.orders.read", "invalid_state_filter");
+  }
+  const limit = boundedLimit(args.limit);
+  const domain: unknown[] = state === undefined ? [["state", "!=", "cancel"]] : [["state", "=", state]];
+  if (partnerId !== undefined) domain.push(["partner_id", "=", partnerId]);
+  if (query) domain.push("|", ["name", "ilike", query], ["partner_id.display_name", "ilike", query]);
+  const records = await searchRead(
+    client,
+    "sale.order",
+    domain,
+    ["id", "name", "state", "partner_id", "amount_untaxed", "amount_total", "currency_id", "date_order", "validity_date"],
+    limit,
+  );
+  return completed("odoo.sales.orders.read", collectionData(options, context, "sale.order", records));
 }
 
 async function searchRead(
