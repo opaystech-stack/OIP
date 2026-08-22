@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { startOdooMcpServer } from "../services/odoo-mcp/src/server.js";
+import { loadOdooMcpConfig, startOdooMcpServer } from "../services/odoo-mcp/src/server.js";
 import type { OdooExecutor } from "../services/odoo-mcp/src/odoo-jsonrpc.js";
 
 class FakeOdoo implements OdooExecutor {
@@ -12,6 +12,17 @@ class FakeOdoo implements OdooExecutor {
     throw new Error(`Unexpected fake call: ${model}.${method}`);
   }
 }
+
+const stagedGoogleConfig = loadOdooMcpConfig({
+  PORT: "3000",
+  MCP_AUTH_TOKEN: "test-mcp-token",
+  ODOO_URL: "http://fake-odoo.invalid",
+  ODOO_USER: "unused",
+  ODOO_PASSWORD: "unused",
+  GOOGLE_CLIENT_ID: "staged-client-id",
+  GOOGLE_CLIENT_SECRET: "staged-client-secret",
+});
+assert.equal("googleWorkspace" in stagedGoogleConfig, false);
 
 const application = await startOdooMcpServer({
   port: 0,

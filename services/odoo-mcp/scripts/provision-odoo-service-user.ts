@@ -14,6 +14,7 @@ const servicePassword = required("OIP_ODOO_SERVICE_PASSWORD");
 
 const admin = new OdooJsonRpcClient(adminConfig);
 const adminUid = await admin.authenticate();
+const baseUserGroupId = await resolveExternalId(admin, "base", "group_user");
 const serviceGroupId = await ensureServiceGroup(admin);
 
 const modelIds = await resolveModels(admin, [
@@ -21,6 +22,9 @@ const modelIds = await resolveModels(admin, [
   "crm.lead",
   "project.project",
   "project.task",
+  "discuss.channel",
+  "discuss.channel.member",
+  "mail.message",
   "account.move",
   "hr.employee",
 ]);
@@ -34,7 +38,7 @@ const userValues = {
   password: servicePassword,
   active: true,
   share: false,
-  group_ids: [[6, 0, [serviceGroupId]]],
+  group_ids: [[6, 0, [baseUserGroupId, serviceGroupId]]],
 };
 const serviceUid = existing === undefined
   ? await createUser(admin, userValues)
@@ -50,7 +54,7 @@ await serviceClient.authenticate();
 const access = await readAccessMatrix(serviceClient);
 const user = await searchOne(serviceClient, "res.users", [["id", "=", serviceUid]], ["login", "active", "share", "group_ids"]);
 
-if (!access["res.partner.read"] || !access["project.project.read"] || !access["project.task.read"] || !access["account.move.read"] || !access["hr.employee.read"] || !access["crm.lead.create"] || access["res.partner.write"] || access["project.task.write"] || access["account.move.write"] || access["hr.employee.write"]) {
+if (!access["res.partner.read"] || !access["project.project.read"] || !access["project.task.read"] || !access["discuss.channel.read"] || !access["discuss.channel.member.read"] || !access["mail.message.read"] || !access["mail.message.create"] || !access["account.move.read"] || !access["hr.employee.read"] || !access["crm.lead.create"] || access["res.partner.write"] || access["project.task.write"] || access["discuss.channel.write"] || access["mail.message.write"] || access["mail.message.unlink"] || access["account.move.write"] || access["hr.employee.write"]) {
   throw new Error("The service-user access matrix does not satisfy the least-privilege gate.");
 }
 
@@ -79,6 +83,9 @@ async function ensureAccessRules(client: OdooJsonRpcClient, groupId: number, mod
     { model: "crm.lead", read: true, create: true },
     { model: "project.project", read: true, create: false },
     { model: "project.task", read: true, create: false },
+    { model: "discuss.channel", read: true, create: false },
+    { model: "discuss.channel.member", read: true, create: false },
+    { model: "mail.message", read: true, create: true },
     { model: "account.move", read: true, create: false },
     { model: "hr.employee", read: true, create: false },
   ];
@@ -103,6 +110,11 @@ async function ensureAccessRules(client: OdooJsonRpcClient, groupId: number, mod
   }
 }
 
+async function resolveExternalId(client: OdooJsonRpcClient, module: string, name: string): Promise<number> {
+  const row = await searchOne(client, "ir.model.data", [["module", "=", module], ["name", "=", name]], ["res_id"]);
+  return requireNumber(row?.res_id, `${module}.${name} external id`);
+}
+
 async function resolveModels(client: OdooJsonRpcClient, names: readonly string[]): Promise<Readonly<Record<string, number>>> {
   const result: Record<string, number> = {};
   for (const name of names) {
@@ -124,7 +136,7 @@ async function updateUser(client: OdooJsonRpcClient, id: number, values: Record<
 }
 
 async function readAccessMatrix(client: OdooJsonRpcClient): Promise<Record<string, boolean>> {
-  const models = ["res.partner", "crm.lead", "project.project", "project.task", "account.move", "hr.employee"];
+  const models = ["res.partner", "crm.lead", "project.project", "project.task", "discuss.channel", "discuss.channel.member", "mail.message", "account.move", "hr.employee"];
   const operations = ["read", "create", "write", "unlink"];
   const matrix: Record<string, boolean> = {};
   for (const model of models) {

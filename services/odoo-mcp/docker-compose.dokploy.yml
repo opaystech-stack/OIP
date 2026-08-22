@@ -10,10 +10,14 @@ services:
       ODOO_DB: "opays_hq"
       ODOO_USER: "oip-system-agent@opays.io"
       ODOO_PASSWORD: "${OIP_ODOO_SERVICE_PASSWORD}"
+      MCP_SERVICE_TOKEN: "${MCP_SERVICE_TOKEN}"
       MCP_AUTH_TOKEN: "${MCP_AUTH_TOKEN}"
       OIP_ORGANIZATION_ID: "opays_hq"
       OIP_REQUIRED_ROLE: "oip.service"
       OIP_ROLES: "oip.service"
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
+      GOOGLE_REFRESH_TOKEN: "${GOOGLE_REFRESH_TOKEN:-}"
     networks:
       - default
       - opays-odoo-internal

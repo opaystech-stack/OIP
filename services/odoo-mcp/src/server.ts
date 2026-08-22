@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { CapabilityGatewayAudit } from "@opaystech/oip/capability-gateway";
 import { createOdooMcpServer } from "./mcp.js";
+import { createGoogleWorkspaceClient, type GoogleWorkspaceExecutor } from "./google-workspace.js";
 import { createOdooGateway, JsonLineCapabilityAudit, OIP_ORGANIZATION_ID, OIP_RELEASE } from "./capabilities.js";
 import { OdooJsonRpcClient, type OdooExecutor } from "./odoo-jsonrpc.js";
 
@@ -16,12 +17,14 @@ export interface OdooMcpServerConfig {
   readonly organizationId: string;
   readonly roles: readonly string[];
   readonly requiredRole: string;
+  readonly googleWorkspace?: GoogleWorkspaceExecutor;
   readonly audit?: CapabilityGatewayAudit;
 }
 
 export interface OdooMcpDependencyOverrides {
   readonly executor?: OdooExecutor;
   readonly serviceUid?: number;
+  readonly googleWorkspace?: GoogleWorkspaceExecutor;
 }
 
 export interface OdooMcpApplication {
@@ -39,9 +42,10 @@ interface OdooMcpSession {
 }
 
 export function loadOdooMcpConfig(env: NodeJS.ProcessEnv = process.env): OdooMcpServerConfig {
+  const googleWorkspace = loadGoogleWorkspace(env);
   return {
     port: parsePort(env.PORT ?? "3000"),
-    mcpAuthToken: requiredEnv(env, "MCP_AUTH_TOKEN"),
+    mcpAuthToken: env.MCP_SERVICE_TOKEN ?? requiredEnv(env, "MCP_AUTH_TOKEN"),
     odooUrl: requiredEnv(env, "ODOO_URL"),
     odooDatabase: env.ODOO_DB ?? "opays_hq",
     odooUsername: requiredEnv(env, "ODOO_USER"),
@@ -49,6 +53,7 @@ export function loadOdooMcpConfig(env: NodeJS.ProcessEnv = process.env): OdooMcp
     organizationId: env.OIP_ORGANIZATION_ID ?? OIP_ORGANIZATION_ID,
     roles: parseRoles(env.OIP_ROLES ?? "oip.service"),
     requiredRole: env.OIP_REQUIRED_ROLE ?? "oip.service",
+    ...(googleWorkspace !== undefined ? { googleWorkspace } : {}),
     audit: new JsonLineCapabilityAudit(),
   };
 }
@@ -64,6 +69,7 @@ export async function createOdooMcpApplication(
     password: config.odooPassword,
   });
   const serviceUid = overrides.serviceUid ?? await authenticateExecutor(client);
+  const googleWorkspace = overrides.googleWorkspace ?? config.googleWorkspace;
   const gatewayOptions = {
     client,
     serviceUid,
@@ -71,6 +77,7 @@ export async function createOdooMcpApplication(
     organizationId: config.organizationId,
     roles: config.roles,
     requiredRole: config.requiredRole,
+    ...(googleWorkspace !== undefined ? { googleWorkspace } : {}),
     ...(config.audit !== undefined ? { audit: config.audit } : {}),
   };
   const bundle = createOdooGateway(gatewayOptions);
@@ -241,6 +248,19 @@ async function closeHttpServer(server: Server): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     server.close((error) => (error ? reject(error) : resolve()));
   });
+}
+
+function loadGoogleWorkspace(env: NodeJS.ProcessEnv): GoogleWorkspaceExecutor | undefined {
+  const clientId = env.GOOGLE_CLIENT_ID;
+  const clientSecret = env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = env.GOOGLE_REFRESH_TOKEN;
+  const hasPartialConfiguration = [clientId, clientSecret, refreshToken].some((value) => typeof value === "string" && value.length > 0);
+  if (!hasPartialConfiguration) return undefined;
+  // A client id/secret can be staged before the user completes the consent flow.
+  // Keep Google capabilities in needs_setup until a refresh token is present;
+  // never crash the Odoo MCP service because OAuth preparation is incomplete.
+  if (!clientId || !clientSecret || !refreshToken) return undefined;
+  return createGoogleWorkspaceClient({ clientId, clientSecret, refreshToken });
 }
 
 function requiredEnv(env: NodeJS.ProcessEnv, name: string): string {
