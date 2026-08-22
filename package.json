@@ -82,8 +82,9 @@
     "test:semantic-copilotkit": "npm run build && node dist/tests/semantic-copilotkit.test.js",
     "test:semantic-function-calling": "npm run build && node dist/tests/semantic-function-calling.test.js",
     "test:capability-gateway": "npm run build && node dist/tests/capability-gateway.test.js",
+    "test:odoo-mcp": "npm run build && node dist/tests/odoo-mcp.test.js && node dist/tests/odoo-mcp-http.test.js",
     "test:tanstack-memory": "npm run build && node dist/tests/tanstack-memory.test.js",
-    "test:all": "npm run check && npm test && npm run test:builder && npm run test:runtimes && npm run test:composed && npm run test:public-api && npm run test:hq-connector && npm run test:hq-registry && npm run test:hq-router && npm run test:hq-orchestration && npm run test:semantic-dispatcher && npm run test:semantic-router && npm run test:semantic-copilotkit && npm run test:semantic-function-calling && npm run test:tanstack-memory && npm run test:capability-gateway"
+    "test:all": "npm run check && npm test && npm run test:builder && npm run test:runtimes && npm run test:composed && npm run test:public-api && npm run test:hq-connector && npm run test:hq-registry && npm run test:hq-router && npm run test:hq-orchestration && npm run test:semantic-dispatcher && npm run test:semantic-router && npm run test:semantic-copilotkit && npm run test:semantic-function-calling && npm run test:tanstack-memory && npm run test:capability-gateway && npm run test:odoo-mcp"
   },
   "repository": {
     "type": "git",

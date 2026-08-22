@@ -1,0 +1,986 @@
+import { CapabilityGateway } from "@opaystech/oip/capability-gateway";
+import type {
+  CapabilityDescriptor,
+  CapabilityGatewayAudit,
+  CapabilityVerification,
+  CapabilityAvailability,
+  CapabilityProcedure,
+} from "@opaystech/oip/capability-gateway";
+import type {
+  ActionResult,
+  CapabilityDefinition,
+  ExecutionContext,
+  JsonObject,
+  JsonValue,
+  PlannedAction,
+} from "@opaystech/oip";
+import type { OdooMcpContextFactory } from "./mcp.js";
+import { GoogleWorkspaceError, type GoogleWorkspaceExecutor, type GoogleWorkspaceCapabilityId } from "./google-workspace.js";
+import { OdooJsonRpcError, type OdooExecutor, toJsonObject, toJsonValue } from "./odoo-jsonrpc.js";
+
+export const OIP_RELEASE = "0.1.0-alpha.1";
+export const OIP_ORGANIZATION_ID = "opays_hq";
+
+export interface OdooGatewayOptions {
+  readonly client: OdooExecutor;
+  readonly serviceUid: number;
+  readonly database: string;
+  readonly organizationId?: string;
+  readonly roles?: readonly string[];
+  readonly requiredRole?: string;
+  readonly googleWorkspace?: GoogleWorkspaceExecutor;
+  readonly audit?: CapabilityGatewayAudit;
+}
+
+export interface OdooGatewayBundle {
+  readonly gateway: CapabilityGateway;
+  readonly contextFactory: OdooMcpContextFactory;
+  readonly descriptors: readonly CapabilityDescriptor[];
+  readonly serviceUid: number;
+  readonly organizationId: string;
+}
+
+type OdooHandler = (
+  args: JsonObject,
+  context: ExecutionContext,
+) => Promise<ActionResult>;
+
+interface OdooActionRuntime {
+  execute(action: PlannedAction, context: ExecutionContext): Promise<ActionResult>;
+}
+
+interface OdooPolicyRequest {
+  readonly subject: ExecutionContext["identity"];
+  readonly resource: string;
+  readonly action: string;
+  readonly arguments?: JsonObject;
+}
+
+interface OdooPolicyDecision {
+  readonly effect: "allow" | "deny" | "confirm";
+  readonly reasons: readonly string[];
+  readonly requiredConfirmationLevel?: "low" | "medium" | "high" | "critical";
+}
+
+interface OdooPolicyRuntimePort {
+  evaluate(request: OdooPolicyRequest, context: ExecutionContext): Promise<OdooPolicyDecision>;
+  registerPolicy(policy: unknown): Promise<void>;
+}
+
+export function createOdooGateway(options: OdooGatewayOptions): OdooGatewayBundle {
+  const organizationId = options.organizationId ?? OIP_ORGANIZATION_ID;
+  const requiredRole = options.requiredRole ?? "oip.service";
+  const roles = Object.freeze([...(options.roles ?? [requiredRole])]);
+  const descriptors = createOdooDescriptors(options.client, {
+    database: options.database,
+    organizationId,
+    requiredRole,
+    ...(options.googleWorkspace !== undefined ? { googleWorkspace: options.googleWorkspace } : {}),
+  });
+  const policy = createPolicies(descriptors, requiredRole);
+  const action = createOdooActionRuntime(options.client, descriptors, {
+    database: options.database,
+    organizationId,
+    ...(options.googleWorkspace !== undefined ? { googleWorkspace: options.googleWorkspace } : {}),
+  });
+
+  const gateway = new CapabilityGateway({
+    action,
+    policy,
+    descriptors,
+    ...(options.audit !== undefined ? { audit: options.audit } : {}),
+  });
+
+  const contextFactory: OdooMcpContextFactory = async ({ requestId }) => ({
+    requestId,
+    identity: {
+      userId: String(options.serviceUid),
+      organizationId,
+      roles,
+      locale: "fr",
+      metadata: {
+        contextSource: "odoo-mcp-server",
+        oipRelease: OIP_RELEASE,
+      },
+    },
+    channel: "api",
+    locale: "fr",
+    metadata: {
+      contextSource: "odoo-mcp-server",
+      oipRelease: OIP_RELEASE,
+    },
+  });
+
+  return {
+    gateway,
+    contextFactory,
+    descriptors,
+    serviceUid: options.serviceUid,
+    organizationId,
+  };
+}
+
+export class JsonLineCapabilityAudit implements CapabilityGatewayAudit {
+  async record(entry: Parameters<CapabilityGatewayAudit["record"]>[0]): Promise<void> {
+    // Deliberately exclude request arguments, record data and all credential material.
+    process.stdout.write(`${JSON.stringify({
+      type: "oip_capability_audit",
+      requestId: entry.requestId,
+      organizationId: entry.organizationId,
+      userId: entry.userId,
+      capabilityId: entry.capabilityId,
+      outcome: entry.outcome,
+      reason: entry.reason,
+      occurredAt: entry.occurredAt,
+      metadata: entry.metadata,
+    })}\n`);
+  }
+}
+
+function createPolicies(
+  descriptors: readonly CapabilityDescriptor[],
+  requiredRole: string,
+): OdooPolicyRuntimePort {
+  return new OdooPolicyRuntime(descriptors, requiredRole);
+}
+
+function createOdooActionRuntime(
+  client: OdooExecutor,
+  descriptors: readonly CapabilityDescriptor[],
+  options: { readonly database: string; readonly organizationId: string; readonly googleWorkspace?: GoogleWorkspaceExecutor },
+): OdooActionRuntime {
+  const handlers = new Map<string, OdooHandler>([
+    ["odoo.contacts.search", (args, context) => searchContacts(client, options, args, context)],
+    ["odoo.crm.leads.create", (args, context) => createCrmLead(client, options, args, context)],
+    ["odoo.projects.tasks.read", (args, context) => readProjectsAndTasks(client, options, args, context)],
+    ["odoo.discuss.channels.read", (args, context) => readDiscussChannels(client, options, args, context)],
+    ["odoo.discuss.messages.read", (args, context) => readDiscussMessages(client, options, args, context)],
+    ["odoo.discuss.message.post", (args, context) => postDiscussMessage(client, options, args, context)],
+    ["google.calendar.event.create", (args, context) => invokeGoogleCapability("google.calendar.event.create", options.googleWorkspace, options, args, context)],
+    ["google.calendar.events.read", (args, context) => invokeGoogleCapability("google.calendar.events.read", options.googleWorkspace, options, args, context)],
+    ["google.gmail.send", (args, context) => invokeGoogleCapability("google.gmail.send", options.googleWorkspace, options, args, context)],
+    ["google.gmail.read", (args, context) => invokeGoogleCapability("google.gmail.read", options.googleWorkspace, options, args, context)],
+    ["google.drive.docs.read", (args, context) => invokeGoogleCapability("google.drive.docs.read", options.googleWorkspace, options, args, context)],
+    ["google.sheets.update", (args, context) => invokeGoogleCapability("google.sheets.update", options.googleWorkspace, options, args, context)],
+    ["odoo.accounting.debts.read", (args, context) => readAccountingDebts(client, options, args, context)],
+    ["odoo.hr.employees.read", (args, context) => readEmployees(client, options, args, context)],
+    ["odoo.crm.leads.read", (args, context) => searchCrmLeads(client, options, args, context)],
+    ["odoo.sales.orders.read", (args, context) => searchSalesOrders(client, options, args, context)],
+  ]);
+  const descriptorIds = new Set(descriptors.map((descriptor) => descriptor.id));
+
+  return {
+    async execute(action: PlannedAction, context: ExecutionContext): Promise<ActionResult> {
+      if (!descriptorIds.has(action.capabilityId)) {
+        return rejected(action.capabilityId, "capability_not_registered");
+      }
+      if (context.identity.organizationId !== options.organizationId) {
+        return rejected(action.capabilityId, "tenant_scope_rejected");
+      }
+
+      const handler = handlers.get(action.capabilityId);
+      if (!handler) return rejected(action.capabilityId, "capability_handler_missing");
+
+      try {
+        return await handler(action.arguments, context);
+      } catch (error) {
+        if (error instanceof OdooJsonRpcError) {
+          return rejected(action.capabilityId, `odoo_${error.code}`);
+        }
+        if (error instanceof GoogleWorkspaceError) {
+          return rejected(action.capabilityId, `google_${error.code}`);
+        }
+        return rejected(action.capabilityId, "odoo_execution_failed");
+      }
+    },
+  };
+}
+
+class OdooPolicyRuntime implements OdooPolicyRuntimePort {
+  private readonly descriptors: ReadonlyMap<string, CapabilityDescriptor>;
+
+  constructor(
+    descriptors: readonly CapabilityDescriptor[],
+    private readonly requiredRole: string,
+  ) {
+    this.descriptors = new Map(descriptors.map((descriptor) => [descriptor.id, descriptor]));
+  }
+
+  async evaluate(request: OdooPolicyRequest, _context: ExecutionContext): Promise<OdooPolicyDecision> {
+    const descriptor = this.descriptors.get(request.resource);
+    if (descriptor === undefined || request.action !== "execute") {
+      return { effect: "deny", reasons: ["The Odoo capability is not registered for execution."] };
+    }
+    if (!request.subject.roles.includes(this.requiredRole)) {
+      return { effect: "deny", reasons: [`The required role ${this.requiredRole} is missing.`] };
+    }
+    if (descriptor.confirmationLevel === "none") {
+      return { effect: "allow", reasons: [] };
+    }
+    return {
+      effect: "confirm",
+      reasons: [`Trusted confirmation is required for ${descriptor.id}.`],
+      requiredConfirmationLevel: descriptor.confirmationLevel,
+    };
+  }
+
+  async registerPolicy(_policy: unknown): Promise<void> {
+    // The descriptors are the versioned policy source for this dedicated service.
+  }
+}
+
+function createOdooDescriptors(
+  client: OdooExecutor,
+  options: { readonly database: string; readonly organizationId: string; readonly requiredRole: string; readonly googleWorkspace?: GoogleWorkspaceExecutor },
+): readonly CapabilityDescriptor[] {
+  const verification = async (
+    result: ActionResult,
+    context: ExecutionContext,
+  ) => verifyOdooResult(result, context, options.database);
+  const googleVerification = async (
+    result: ActionResult,
+    context: ExecutionContext,
+  ) => verifyGoogleResult(result, context);
+  const googleConfigured = options.googleWorkspace !== undefined;
+  const googleSetupProcedure: CapabilityProcedure = {
+    id: "google.workspace.oauth2.setup",
+    type: "manual",
+    title: "Authorize Google Workspace",
+    summary: "Provide a Google OAuth2 refresh token with the Calendar, Gmail, Docs and Sheets scopes.",
+    steps: [
+      "Enable Gmail, Calendar, Drive/Docs and Sheets APIs in the Google Cloud project.",
+      "Create a desktop or web OAuth client and authorize the exact redirect URI used by the deployment.",
+      "Inject GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REFRESH_TOKEN through the Dokploy secret store.",
+      "Re-run the capability smoke test and verify a read-only Calendar/Gmail call before enabling writes.",
+    ],
+    prerequisites: ["Google OAuth client", "Workspace administrator approval when required", "All requested APIs enabled"],
+  };
+
+  return [
+    descriptor({
+      id: "odoo.contacts.search",
+      description: "Search and read Odoo contacts in the governed opays_hq tenant.",
+      keywords: ["contacts", "contact", "partners", "res.partner", "clients", "recherche", "contacts"],
+      aliases: ["find contacts", "search contacts", "rechercher des contacts"],
+      parameters: [
+        { name: "query", type: "string", required: false, description: "Name or email fragment." },
+        { name: "limit", type: "number", required: false, description: "Maximum number of records, from 1 to 100." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification,
+    }),
+    descriptor({
+      id: "odoo.crm.leads.create",
+      description: "Create a CRM lead in Odoo after trusted confirmation.",
+      keywords: ["crm", "lead", "opportunity", "prospect", "create", "création", "piste"],
+      aliases: ["create lead", "create opportunity", "créer une piste"],
+      parameters: [
+        { name: "name", type: "string", required: true, description: "Lead or opportunity name." },
+        { name: "contactEmail", type: "string", required: false, description: "Contact email." },
+        { name: "partnerId", type: "number", required: false, description: "Existing Odoo contact id." },
+        { name: "description", type: "string", required: false, description: "Lead description." },
+        { name: "expectedRevenue", type: "number", required: false, description: "Expected revenue." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "high",
+      sideEffects: ["Creates one crm.lead record in opays_hq."],
+      emits: ["odoo.crm.lead.created"],
+      verification,
+    }),
+    descriptor({
+      id: "odoo.projects.tasks.read",
+      description: "Read Odoo projects and tasks in the governed opays_hq tenant.",
+      keywords: ["projects", "project", "tasks", "task", "projets", "tâches", "planning"],
+      aliases: ["read project tasks", "show project tasks", "afficher les tâches du projet"],
+      parameters: [
+        { name: "projectId", type: "number", required: false, description: "Optional Odoo project id." },
+        { name: "limit", type: "number", required: false, description: "Maximum number of projects and tasks, from 1 to 100." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification,
+    }),
+    descriptor({
+      id: "odoo.discuss.channels.read",
+      description: "Read Odoo Discuss channels in the governed opays_hq tenant.",
+      keywords: ["discuss", "channels", "channel", "discussion", "team communication", "canaux"],
+      aliases: ["read discuss channels", "show team channels", "lire les canaux de discussion"],
+      parameters: [
+        { name: "query", type: "string", required: false, description: "Channel name fragment." },
+        { name: "limit", type: "number", required: false, description: "Maximum number of channels, from 1 to 100." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification,
+    }),
+    descriptor({
+      id: "odoo.discuss.messages.read",
+      description: "Read messages from an Odoo Discuss channel in the governed opays_hq tenant.",
+      keywords: ["discuss", "messages", "message", "discussion", "conversation", "messages"],
+      aliases: ["read discuss messages", "show channel messages", "lire les messages du canal"],
+      parameters: [
+        { name: "channelId", type: "number", required: true, description: "Odoo discuss.channel id." },
+        { name: "limit", type: "number", required: false, description: "Maximum number of messages, from 1 to 100." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification,
+    }),
+    descriptor({
+      id: "odoo.discuss.message.post",
+      description: "Post a message to an Odoo Discuss channel after trusted confirmation.",
+      keywords: ["discuss", "message", "post", "reply", "discussion", "répondre"],
+      aliases: ["post discuss message", "reply in channel", "répondre dans le canal"],
+      parameters: [
+        { name: "channelId", type: "number", required: true, description: "Odoo discuss.channel id." },
+        { name: "body", type: "string", required: true, description: "Message body, maximum 10,000 characters." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "high",
+      sideEffects: ["Creates one mail.message record in the selected Odoo Discuss channel."],
+      emits: ["odoo.discuss.message.posted"],
+      verification,
+    }),
+    googleDescriptor({
+      id: "google.calendar.event.create",
+      description: "Create a Google Calendar event after trusted confirmation.",
+      keywords: ["google", "calendar", "event", "meeting", "appointment", "rendez-vous"],
+      aliases: ["create calendar event", "schedule meeting", "planifier un rendez-vous"],
+      parameters: [
+        { name: "calendarId", type: "string", required: false, description: "Calendar id; defaults to primary." },
+        { name: "summary", type: "string", required: true, description: "Event title." },
+        { name: "start", type: "string", required: true, description: "ISO 8601 start with timezone." },
+        { name: "end", type: "string", required: true, description: "ISO 8601 end with timezone." },
+        { name: "timeZone", type: "string", required: false, description: "IANA timezone." },
+        { name: "description", type: "string", required: false, description: "Event description." },
+        { name: "location", type: "string", required: false, description: "Event location." },
+        { name: "attendees", type: "array", required: false, description: "Google Calendar attendee objects." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "high",
+      sideEffects: ["Creates one Google Calendar event."],
+      emits: ["google.calendar.event.created"],
+      verification: googleVerification,
+    }, googleConfigured, googleSetupProcedure),
+    googleDescriptor({
+      id: "google.calendar.events.read",
+      description: "Read bounded Google Calendar events.",
+      keywords: ["google", "calendar", "events", "agenda", "meetings", "rendez-vous"],
+      aliases: ["read calendar", "list meetings", "lire le calendrier"],
+      parameters: [
+        { name: "calendarId", type: "string", required: false, description: "Calendar id; defaults to primary." },
+        { name: "timeMin", type: "string", required: false, description: "ISO 8601 lower bound." },
+        { name: "timeMax", type: "string", required: false, description: "ISO 8601 upper bound." },
+        { name: "maxResults", type: "number", required: false, description: "Maximum events, from 1 to 100." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification: googleVerification,
+    }, googleConfigured, googleSetupProcedure),
+    googleDescriptor({
+      id: "google.gmail.send",
+      description: "Send a Gmail message after trusted confirmation.",
+      keywords: ["google", "gmail", "email", "mail", "send", "envoyer"],
+      aliases: ["send email", "send gmail", "envoyer un e-mail"],
+      parameters: [
+        { name: "to", type: "string", required: true, description: "Recipient address or RFC 2822 recipient list." },
+        { name: "subject", type: "string", required: true, description: "Email subject." },
+        { name: "body", type: "string", required: true, description: "Email body." },
+        { name: "html", type: "boolean", required: false, description: "Send as HTML when true." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "high",
+      sideEffects: ["Sends one Gmail message."],
+      emits: ["google.gmail.message.sent"],
+      verification: googleVerification,
+    }, googleConfigured, googleSetupProcedure),
+    googleDescriptor({
+      id: "google.gmail.read",
+      description: "Read bounded Gmail message summaries.",
+      keywords: ["google", "gmail", "email", "mail", "inbox", "e-mails"],
+      aliases: ["read gmail", "search email", "lire les e-mails"],
+      parameters: [
+        { name: "query", type: "string", required: false, description: "Gmail search query." },
+        { name: "maxResults", type: "number", required: false, description: "Maximum messages, from 1 to 100." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification: googleVerification,
+    }, googleConfigured, googleSetupProcedure),
+    googleDescriptor({
+      id: "google.drive.docs.read",
+      description: "Read bounded text from a Google Doc by document id.",
+      keywords: ["google", "drive", "docs", "document", "read", "document"],
+      aliases: ["read google doc", "read drive document", "lire un document Drive"],
+      parameters: [
+        { name: "documentId", type: "string", required: true, description: "Google Docs document id." },
+        { name: "maxChars", type: "number", required: false, description: "Maximum returned characters, from 1 to 100000." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification: googleVerification,
+    }, googleConfigured, googleSetupProcedure),
+    googleDescriptor({
+      id: "google.sheets.update",
+      description: "Update a Google Sheets range after trusted confirmation.",
+      keywords: ["google", "sheets", "spreadsheet", "update", "tableur", "modifier"],
+      aliases: ["update sheet", "write spreadsheet", "mettre à jour un tableur"],
+      parameters: [
+        { name: "spreadsheetId", type: "string", required: true, description: "Google Sheets spreadsheet id." },
+        { name: "range", type: "string", required: true, description: "A1 notation range." },
+        { name: "values", type: "array", required: true, description: "Rows and cell values." },
+        { name: "valueInputOption", type: "string", required: false, description: "RAW or USER_ENTERED." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "high",
+      sideEffects: ["Updates one Google Sheets range."],
+      emits: ["google.sheets.range.updated"],
+      verification: googleVerification,
+    }, googleConfigured, googleSetupProcedure),
+    descriptor({
+      id: "odoo.accounting.debts.read",
+      description: "Read posted unpaid customer and vendor invoices as governed Odoo debts.",
+      keywords: ["accounting", "debts", "debt", "invoices", "unpaid", "comptabilité", "dettes", "factures"],
+      aliases: ["read debts", "check debts", "vérifier les dettes"],
+      parameters: [
+        { name: "partnerId", type: "number", required: false, description: "Optional Odoo partner id." },
+        { name: "limit", type: "number", required: false, description: "Maximum number of invoices, from 1 to 100." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification,
+    }),
+    descriptor({
+      id: "odoo.hr.employees.read",
+      description: "Read active Odoo employees in the governed opays_hq tenant.",
+      keywords: ["hr", "human resources", "employees", "employee", "rh", "salariés", "employés"],
+      aliases: ["read employees", "show employees", "lire les employés"],
+      parameters: [
+        { name: "query", type: "string", required: false, description: "Name or work email fragment." },
+        { name: "limit", type: "number", required: false, description: "Maximum number of employees, from 1 to 100." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification,
+    }),
+    descriptor({
+      id: "odoo.crm.leads.read",
+      description: "Search and read Odoo CRM leads and opportunities in the governed opays_hq tenant.",
+      keywords: ["crm", "lead", "leads", "opportunity", "opportunities", "prospect", "pipeline", "pistes", "opportunités"],
+      aliases: ["read leads", "search leads", "lire les pistes", "lire les opportunités"],
+      parameters: [
+        { name: "query", type: "string", required: false, description: "Name or contact email fragment." },
+        { name: "stageId", type: "number", required: false, description: "Optional CRM stage id." },
+        { name: "includeWon", type: "boolean", required: false, description: "Include won opportunities (default: false, open pipeline only)." },
+        { name: "limit", type: "number", required: false, description: "Maximum number of leads, from 1 to 100." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification,
+    }),
+    descriptor({
+      id: "odoo.sales.orders.read",
+      description: "Search and read Odoo sales quotations and orders in the governed opays_hq tenant.",
+      keywords: ["sales", "sale", "order", "orders", "quotation", "quotations", "quote", "devis", "ventes", "commandes"],
+      aliases: ["read sales orders", "read quotations", "lire les devis", "lire les commandes"],
+      parameters: [
+        { name: "query", type: "string", required: false, description: "Order reference or customer name fragment." },
+        { name: "partnerId", type: "number", required: false, description: "Optional Odoo partner id." },
+        { name: "state", type: "string", required: false, description: "Optional state filter: draft, sent, sale, cancel." },
+        { name: "limit", type: "number", required: false, description: "Maximum number of orders, from 1 to 100." },
+      ],
+      requiredRoles: [options.requiredRole],
+      confirmationLevel: "none",
+      sideEffects: [],
+      emits: [],
+      verification,
+    }),
+  ].map((item) => ({ ...item, source: "services/odoo-mcp" }));
+}
+
+function descriptor(
+  definition: CapabilityDefinition & {
+    readonly keywords: readonly string[];
+    readonly aliases: readonly string[];
+    readonly verification: CapabilityDescriptor["verification"];
+  },
+): Omit<CapabilityDescriptor, "source"> {
+  return {
+    ...definition,
+    availability: "available",
+    tenantScope: { organizationIds: [OIP_ORGANIZATION_ID] },
+  };
+}
+
+function googleDescriptor(
+  definition: CapabilityDefinition & {
+    readonly keywords: readonly string[];
+    readonly aliases: readonly string[];
+    readonly verification: CapabilityDescriptor["verification"];
+  },
+  configured: boolean,
+  setupProcedure: CapabilityProcedure,
+): Omit<CapabilityDescriptor, "source"> {
+  const base = descriptor(definition);
+  return {
+    ...base,
+    availability: configured ? "available" : "needs_setup",
+    ...(configured ? {} : { setupProcedure }),
+  };
+}
+
+async function invokeGoogleCapability(
+  capabilityId: GoogleWorkspaceCapabilityId,
+  executor: GoogleWorkspaceExecutor | undefined,
+  options: { readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const allowedArguments: Record<GoogleWorkspaceCapabilityId, readonly string[]> = {
+    "google.calendar.event.create": ["calendarId", "summary", "start", "end", "timeZone", "description", "location", "attendees"],
+    "google.calendar.events.read": ["calendarId", "timeMin", "timeMax", "maxResults"],
+    "google.gmail.send": ["to", "subject", "body", "html"],
+    "google.gmail.read": ["query", "maxResults"],
+    "google.drive.docs.read": ["documentId", "maxChars"],
+    "google.sheets.update": ["spreadsheetId", "range", "values", "valueInputOption"],
+  };
+  const validation = validateArguments(args, allowedArguments[capabilityId]);
+  if (validation) return rejected(capabilityId, validation);
+  if (executor === undefined) return rejected(capabilityId, "google_workspace_not_configured");
+
+  const payload = await executor.execute(capabilityId, args);
+  return completed(capabilityId, {
+    source: "google.workspace",
+    organizationId: options.organizationId,
+    tenantVerified: context.identity.organizationId === options.organizationId,
+    ...payload,
+  });
+}
+
+async function searchContacts(
+  client: OdooExecutor,
+  options: { readonly database: string; readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const validation = validateArguments(args, ["query", "limit"]);
+  if (validation) return rejected("odoo.contacts.search", validation);
+
+  const query = optionalString(args.query);
+  const limit = boundedLimit(args.limit);
+  const domain: unknown[] = query
+    ? ["|", ["name", "ilike", query], ["email", "ilike", query]]
+    : [];
+  const records = await searchRead(client, "res.partner", domain, ["id", "name", "email", "phone", "company_type"], limit);
+  return completed("odoo.contacts.search", collectionData(options, context, "res.partner", records));
+}
+
+async function createCrmLead(
+  client: OdooExecutor,
+  options: { readonly database: string; readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const validation = validateArguments(args, ["name", "contactEmail", "partnerId", "description", "expectedRevenue"]);
+  if (validation) return rejected("odoo.crm.leads.create", validation);
+
+  const name = requiredString(args.name);
+  const values: JsonObject = {
+    name,
+    type: "lead",
+    ...(args.contactEmail !== undefined ? { email_from: requiredString(args.contactEmail) } : {}),
+    ...(args.partnerId !== undefined ? { partner_id: requiredNumber(args.partnerId) } : {}),
+    ...(args.description !== undefined ? { description: requiredString(args.description) } : {}),
+    ...(args.expectedRevenue !== undefined ? { expected_revenue: requiredNumber(args.expectedRevenue) } : {}),
+  };
+
+  const created = await client.executeKw("crm.lead", "create", [values]);
+  const recordId = typeof created === "number" ? created : undefined;
+  if (recordId === undefined) return rejected("odoo.crm.leads.create", "create_result_invalid");
+
+  const rows = await searchRead(client, "crm.lead", [["id", "=", recordId]], ["id", "name", "type", "email_from", "expected_revenue"], 1);
+  if (rows.length !== 1) return rejected("odoo.crm.leads.create", "post_create_verification_failed");
+
+  return completed("odoo.crm.leads.create", {
+    ...collectionData(options, context, "crm.lead", rows),
+    recordId,
+    writeVerified: true,
+  });
+}
+
+async function readProjectsAndTasks(
+  client: OdooExecutor,
+  options: { readonly database: string; readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const validation = validateArguments(args, ["projectId", "limit"]);
+  if (validation) return rejected("odoo.projects.tasks.read", validation);
+
+  const projectId = args.projectId === undefined ? undefined : requiredNumber(args.projectId);
+  const limit = boundedLimit(args.limit);
+  const projectDomain: unknown[] = [["active", "=", true]];
+  if (projectId !== undefined) projectDomain.push(["id", "=", projectId]);
+  const projects = await searchRead(client, "project.project", projectDomain, ["id", "name", "active"], limit);
+
+  const activeProjectIds = projects
+    .map((project) => project.id)
+    .filter((value): value is number => typeof value === "number");
+  const taskDomain: unknown[] = [["active", "=", true]];
+  if (projectId !== undefined) {
+    taskDomain.push(["project_id", "=", projectId]);
+  } else {
+    taskDomain.push(["project_id", "in", activeProjectIds]);
+  }
+  const tasks = await searchRead(client, "project.task", taskDomain, ["id", "name", "project_id", "stage_id", "active"], limit);
+
+  return completed("odoo.projects.tasks.read", {
+    ...baseData(options, context, "project.project,project.task"),
+    projects: jsonRows(projects),
+    tasks: jsonRows(tasks),
+    projectCount: projects.length,
+    taskCount: tasks.length,
+  });
+}
+
+async function readDiscussChannels(
+  client: OdooExecutor,
+  options: { readonly database: string; readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const validation = validateArguments(args, ["query", "limit"]);
+  if (validation) return rejected("odoo.discuss.channels.read", validation);
+
+  const query = optionalString(args.query);
+  const limit = boundedLimit(args.limit);
+  const domain: unknown[] = query ? [["name", "ilike", query]] : [];
+  const records = await searchRead(client, "discuss.channel", domain, ["id", "name", "channel_type", "uuid", "active"], limit);
+  return completed("odoo.discuss.channels.read", collectionData(options, context, "discuss.channel", records));
+}
+
+async function readDiscussMessages(
+  client: OdooExecutor,
+  options: { readonly database: string; readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const validation = validateArguments(args, ["channelId", "limit"]);
+  if (validation) return rejected("odoo.discuss.messages.read", validation);
+
+  const channelId = requiredNumber(args.channelId);
+  const limit = boundedLimit(args.limit);
+  const records = await searchRead(
+    client,
+    "mail.message",
+    [["model", "=", "discuss.channel"], ["res_id", "=", channelId]],
+    ["id", "channel_id", "body", "message_type", "date"],
+    limit,
+  );
+  return completed("odoo.discuss.messages.read", collectionData(options, context, "mail.message", records));
+}
+
+async function postDiscussMessage(
+  client: OdooExecutor,
+  options: { readonly database: string; readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const validation = validateArguments(args, ["channelId", "body"]);
+  if (validation) return rejected("odoo.discuss.message.post", validation);
+
+  const channelId = requiredNumber(args.channelId);
+  const body = requiredString(args.body);
+  if (body.length > 10_000) return rejected("odoo.discuss.message.post", "body_too_long");
+
+  const created = await client.executeKw(
+    "discuss.channel",
+    "message_post",
+    [[channelId]],
+    {
+      body,
+      message_type: "comment",
+      subtype_xmlid: "mail.mt_comment",
+    },
+  );
+  const messageId = typeof created === "number" ? created : undefined;
+  if (messageId === undefined) return rejected("odoo.discuss.message.post", "post_result_invalid");
+
+  const rows = await searchRead(client, "mail.message", [["id", "=", messageId]], ["id", "channel_id", "body", "message_type", "date"], 1);
+  if (rows.length !== 1) return rejected("odoo.discuss.message.post", "post_verification_failed");
+
+  return completed("odoo.discuss.message.post", {
+    ...baseData(options, context, "discuss.channel,mail.message"),
+    messageId,
+    writeVerified: true,
+  });
+}
+
+async function readAccountingDebts(
+  client: OdooExecutor,
+  options: { readonly database: string; readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const validation = validateArguments(args, ["partnerId", "limit"]);
+  if (validation) return rejected("odoo.accounting.debts.read", validation);
+
+  const partnerId = args.partnerId === undefined ? undefined : requiredNumber(args.partnerId);
+  const limit = boundedLimit(args.limit);
+  const domain: unknown[] = [
+    ["state", "=", "posted"],
+    ["payment_state", "not in", ["paid", "reversed"]],
+    ["amount_residual", "!=", 0],
+    ["move_type", "in", ["out_invoice", "out_refund", "in_invoice", "in_refund"]],
+  ];
+  if (partnerId !== undefined) domain.push(["partner_id", "=", partnerId]);
+  const records = await searchRead(
+    client,
+    "account.move",
+    domain,
+    ["id", "name", "partner_id", "invoice_date", "invoice_date_due", "amount_residual", "currency_id", "move_type", "payment_state"],
+    limit,
+  );
+  return completed("odoo.accounting.debts.read", collectionData(options, context, "account.move", records));
+}
+
+async function readEmployees(
+  client: OdooExecutor,
+  options: { readonly database: string; readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const validation = validateArguments(args, ["query", "limit"]);
+  if (validation) return rejected("odoo.hr.employees.read", validation);
+
+  const query = optionalString(args.query);
+  const limit = boundedLimit(args.limit);
+  const domain: unknown[] = [["active", "=", true]];
+  if (query) domain.push("|", ["name", "ilike", query], ["work_email", "ilike", query]);
+  const records = await searchRead(client, "hr.employee", domain, ["id", "name", "work_email", "active"], limit);
+  return completed("odoo.hr.employees.read", collectionData(options, context, "hr.employee", records));
+}
+
+async function searchCrmLeads(
+  client: OdooExecutor,
+  options: { readonly database: string; readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const validation = validateArguments(args, ["query", "stageId", "includeWon", "limit"]);
+  if (validation) return rejected("odoo.crm.leads.read", validation);
+
+  const query = optionalString(args.query);
+  const stageId = args.stageId === undefined ? undefined : requiredNumber(args.stageId);
+  const includeWon = args.includeWon === true;
+  const limit = boundedLimit(args.limit);
+  const domain: unknown[] = [];
+  if (!includeWon) domain.push(["probability", "<", 100]);
+  if (stageId !== undefined) domain.push(["stage_id", "=", stageId]);
+  if (query) {
+    // Prefix notation: appending "| leaf leaf" keeps the implicit AND with prior terms.
+    domain.push("|", ["name", "ilike", query], ["email_from", "ilike", query]);
+  }
+  const records = await searchRead(
+    client,
+    "crm.lead",
+    domain,
+    ["id", "name", "type", "stage_id", "partner_id", "email_from", "phone", "expected_revenue", "probability", "active"],
+    limit,
+  );
+  return completed("odoo.crm.leads.read", collectionData(options, context, "crm.lead", records));
+}
+
+async function searchSalesOrders(
+  client: OdooExecutor,
+  options: { readonly database: string; readonly organizationId: string },
+  args: JsonObject,
+  context: ExecutionContext,
+): Promise<ActionResult> {
+  const validation = validateArguments(args, ["query", "partnerId", "state", "limit"]);
+  if (validation) return rejected("odoo.sales.orders.read", validation);
+
+  const query = optionalString(args.query);
+  const partnerId = args.partnerId === undefined ? undefined : requiredNumber(args.partnerId);
+  const state = optionalString(args.state);
+  if (state !== undefined && !["draft", "sent", "sale", "cancel"].includes(state)) {
+    return rejected("odoo.sales.orders.read", "invalid_state_filter");
+  }
+  const limit = boundedLimit(args.limit);
+  const domain: unknown[] = state === undefined ? [["state", "!=", "cancel"]] : [["state", "=", state]];
+  if (partnerId !== undefined) domain.push(["partner_id", "=", partnerId]);
+  if (query) domain.push("|", ["name", "ilike", query], ["partner_id.display_name", "ilike", query]);
+  const records = await searchRead(
+    client,
+    "sale.order",
+    domain,
+    ["id", "name", "state", "partner_id", "amount_untaxed", "amount_total", "currency_id", "date_order", "validity_date"],
+    limit,
+  );
+  return completed("odoo.sales.orders.read", collectionData(options, context, "sale.order", records));
+}
+
+async function searchRead(
+  client: OdooExecutor,
+  model: string,
+  domain: readonly unknown[],
+  fields: readonly string[],
+  limit: number,
+): Promise<readonly JsonObject[]> {
+  const payload = await client.executeKw(model, "search_read", [domain], {
+    fields: fields as unknown as JsonValue,
+    limit,
+    order: "id asc",
+  });
+  if (!Array.isArray(payload)) throw new OdooJsonRpcError("Odoo search_read returned an invalid result.", "invalid_response");
+  return payload.map(toJsonObject);
+}
+
+function baseData(
+  options: { readonly database: string; readonly organizationId: string },
+  context: ExecutionContext,
+  model: string,
+): JsonObject {
+  return {
+    source: "odoo.json-rpc",
+    database: options.database,
+    organizationId: context.identity.organizationId,
+    model,
+    tenantVerified: context.identity.organizationId === options.organizationId,
+  };
+}
+
+function collectionData(
+  options: { readonly database: string; readonly organizationId: string },
+  context: ExecutionContext,
+  model: string,
+  records: readonly JsonObject[],
+): JsonObject {
+  return {
+    ...baseData(options, context, model),
+    records: jsonRows(records),
+    recordCount: records.length,
+  };
+}
+
+function jsonRows(rows: readonly JsonObject[]): JsonValue[] {
+  return rows.map((row) => row as JsonValue);
+}
+
+function completed(capabilityId: string, data: JsonObject): ActionResult {
+  return { capabilityId, status: "completed", data, events: [] };
+}
+
+function rejected(capabilityId: string, code: string): ActionResult {
+  return {
+    capabilityId,
+    status: "rejected",
+    data: {
+      issues: [{ code, message: "The Odoo capability request was rejected." }],
+    },
+    events: [],
+  };
+}
+
+function validateArguments(args: JsonObject, allowed: readonly string[]): string | undefined {
+  const allowedSet = new Set(allowed);
+  const reserved = new Set(["userId", "organizationId", "tenantId", "roles", "credentials", "password", "token", "oauth_uid"]);
+  for (const key of Object.keys(args)) {
+    if (reserved.has(key)) return "security_context_argument_forbidden";
+    if (!allowedSet.has(key)) return "unknown_argument";
+  }
+  return undefined;
+}
+
+function optionalString(value: JsonValue | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  return requiredString(value);
+}
+
+function requiredString(value: JsonValue | undefined): string {
+  if (typeof value !== "string" || value.trim().length === 0) throw new Error("invalid_string");
+  return value.trim();
+}
+
+function requiredNumber(value: JsonValue | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) throw new Error("invalid_number");
+  return value;
+}
+
+function boundedLimit(value: JsonValue | undefined): number {
+  if (value === undefined) return 50;
+  const limit = requiredNumber(value);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error("invalid_limit");
+  return limit;
+}
+
+async function verifyOdooResult(
+  result: ActionResult,
+  context: ExecutionContext,
+  database: string,
+): Promise<CapabilityVerification> {
+  const data = result.data;
+  const verified = result.status === "completed"
+    && data?.source === "odoo.json-rpc"
+    && data.database === database
+    && data.organizationId === context.identity.organizationId
+    && data.tenantVerified === true;
+
+  return {
+    verified,
+    summary: verified
+      ? "Odoo returned a result verified against the server-derived tenant and database scope."
+      : "The Odoo result could not be verified against the server-derived tenant and database scope.",
+    evidence: {
+      source: typeof data?.source === "string" ? data.source : "unknown",
+      database: typeof data?.database === "string" ? data.database : "unknown",
+      organizationId: context.identity.organizationId,
+      recordCount: typeof data?.recordCount === "number" ? data.recordCount : 0,
+      tenantVerified: data?.tenantVerified === true,
+    },
+  };
+}
+
+async function verifyGoogleResult(
+  result: ActionResult,
+  context: ExecutionContext,
+): Promise<CapabilityVerification> {
+  const data = result.data;
+  const verified = result.status === "completed"
+    && data?.source === "google.workspace"
+    && data.organizationId === context.identity.organizationId
+    && data.tenantVerified === true;
+
+  return {
+    verified,
+    summary: verified
+      ? "Google Workspace returned a result verified against the server-derived tenant scope."
+      : "The Google Workspace result could not be verified against the server-derived tenant scope.",
+    evidence: {
+      source: typeof data?.source === "string" ? data.source : "unknown",
+      organizationId: context.identity.organizationId,
+      tenantVerified: data?.tenantVerified === true,
+    },
+  };
+}

@@ -8,12 +8,17 @@
     "sourceMap": true,
     "outDir": "dist",
     "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@opaystech/oip/capability-gateway": ["packages/capability-gateway/src/index.ts"]
+    },
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "skipLibCheck": true
   },
   "include": [
     "packages/**/*.ts",
+    "services/**/*.ts",
     "examples/**/*.ts",
     "tests/**/*.ts"
   ]

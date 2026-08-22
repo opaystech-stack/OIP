@@ -1,0 +1,47 @@
+services:
+  opays-odoo-agent:
+    build:
+      context: ../..
+      dockerfile: services/odoo-mcp/Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: "3001"
+      ODOO_URL: "http://odoo:8069"
+      ODOO_DB: "opays_hq"
+      ODOO_USER: "oip-system-agent@opays.io"
+      ODOO_PASSWORD: "${OIP_ODOO_SERVICE_PASSWORD}"
+      MCP_SERVICE_TOKEN: "${MCP_SERVICE_TOKEN}"
+      MCP_AUTH_TOKEN: "${MCP_AUTH_TOKEN}"
+      OIP_ORGANIZATION_ID: "opays_hq"
+      OIP_REQUIRED_ROLE: "oip.service"
+      OIP_ROLES: "oip.service"
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
+      GOOGLE_REFRESH_TOKEN: "${GOOGLE_REFRESH_TOKEN:-}"
+    networks:
+      - default
+      - opays-odoo-internal
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3001/health').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "${TRAEFIK_NETWORK}"
+      traefik.http.routers.opays-odoo-agent.rule: "Host(`hq.opays.io`) && PathPrefix(`/mcp`)"
+      traefik.http.routers.opays-odoo-agent.entrypoints: "websecure"
+      traefik.http.routers.opays-odoo-agent.tls: "true"
+      traefik.http.routers.opays-odoo-agent.tls.certresolver: "letsencrypt"
+      traefik.http.routers.opays-odoo-agent-health.rule: "Host(`hq.opays.io`) && Path(`/health`)"
+      traefik.http.routers.opays-odoo-agent-health.entrypoints: "websecure"
+      traefik.http.routers.opays-odoo-agent-health.tls: "true"
+      traefik.http.routers.opays-odoo-agent-health.tls.certresolver: "letsencrypt"
+      traefik.http.routers.opays-odoo-agent-health.priority: "100"
+      traefik.http.services.opays-odoo-agent.loadbalancer.server.port: "3001"
+
+networks:
+  opays-odoo-internal:
+    external: true
+    name: opays-odoo-internal
