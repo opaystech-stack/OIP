@@ -271,7 +271,7 @@ function createOdooDescriptors(
       sideEffects: [],
       emits: [],
       verification,
-    }),
+    }, options.organizationId),
     descriptor({
       id: "odoo.crm.leads.create",
       description: "Create a CRM lead in Odoo after trusted confirmation.",
@@ -289,7 +289,7 @@ function createOdooDescriptors(
       sideEffects: ["Creates one crm.lead record in opays_hq."],
       emits: ["odoo.crm.lead.created"],
       verification,
-    }),
+    }, options.organizationId),
     descriptor({
       id: "odoo.projects.tasks.read",
       description: "Read Odoo projects and tasks in the governed opays_hq tenant.",
@@ -304,7 +304,7 @@ function createOdooDescriptors(
       sideEffects: [],
       emits: [],
       verification,
-    }),
+    }, options.organizationId),
     descriptor({
       id: "odoo.discuss.channels.read",
       description: "Read Odoo Discuss channels in the governed opays_hq tenant.",
@@ -319,7 +319,7 @@ function createOdooDescriptors(
       sideEffects: [],
       emits: [],
       verification,
-    }),
+    }, options.organizationId),
     descriptor({
       id: "odoo.discuss.messages.read",
       description: "Read messages from an Odoo Discuss channel in the governed opays_hq tenant.",
@@ -334,7 +334,7 @@ function createOdooDescriptors(
       sideEffects: [],
       emits: [],
       verification,
-    }),
+    }, options.organizationId),
     descriptor({
       id: "odoo.discuss.message.post",
       description: "Post a message to an Odoo Discuss channel after trusted confirmation.",
@@ -349,7 +349,7 @@ function createOdooDescriptors(
       sideEffects: ["Creates one mail.message record in the selected Odoo Discuss channel."],
       emits: ["odoo.discuss.message.posted"],
       verification,
-    }),
+    }, options.organizationId),
     googleDescriptor({
       id: "google.calendar.event.create",
       description: "Create a Google Calendar event after trusted confirmation.",
@@ -370,7 +370,7 @@ function createOdooDescriptors(
       sideEffects: ["Creates one Google Calendar event."],
       emits: ["google.calendar.event.created"],
       verification: googleVerification,
-    }, googleConfigured, googleSetupProcedure),
+    }, options.organizationId, googleConfigured, googleSetupProcedure),
     googleDescriptor({
       id: "google.calendar.events.read",
       description: "Read bounded Google Calendar events.",
@@ -387,7 +387,7 @@ function createOdooDescriptors(
       sideEffects: [],
       emits: [],
       verification: googleVerification,
-    }, googleConfigured, googleSetupProcedure),
+    }, options.organizationId, googleConfigured, googleSetupProcedure),
     googleDescriptor({
       id: "google.gmail.send",
       description: "Send a Gmail message after trusted confirmation.",
@@ -404,7 +404,7 @@ function createOdooDescriptors(
       sideEffects: ["Sends one Gmail message."],
       emits: ["google.gmail.message.sent"],
       verification: googleVerification,
-    }, googleConfigured, googleSetupProcedure),
+    }, options.organizationId, googleConfigured, googleSetupProcedure),
     googleDescriptor({
       id: "google.gmail.read",
       description: "Read bounded Gmail message summaries.",
@@ -419,7 +419,7 @@ function createOdooDescriptors(
       sideEffects: [],
       emits: [],
       verification: googleVerification,
-    }, googleConfigured, googleSetupProcedure),
+    }, options.organizationId, googleConfigured, googleSetupProcedure),
     googleDescriptor({
       id: "google.drive.docs.read",
       description: "Read bounded text from a Google Doc by document id.",
@@ -434,7 +434,7 @@ function createOdooDescriptors(
       sideEffects: [],
       emits: [],
       verification: googleVerification,
-    }, googleConfigured, googleSetupProcedure),
+    }, options.organizationId, googleConfigured, googleSetupProcedure),
     googleDescriptor({
       id: "google.sheets.update",
       description: "Update a Google Sheets range after trusted confirmation.",
@@ -451,7 +451,7 @@ function createOdooDescriptors(
       sideEffects: ["Updates one Google Sheets range."],
       emits: ["google.sheets.range.updated"],
       verification: googleVerification,
-    }, googleConfigured, googleSetupProcedure),
+    }, options.organizationId, googleConfigured, googleSetupProcedure),
     descriptor({
       id: "odoo.accounting.debts.read",
       description: "Read posted unpaid customer and vendor invoices as governed Odoo debts.",
@@ -466,7 +466,7 @@ function createOdooDescriptors(
       sideEffects: [],
       emits: [],
       verification,
-    }),
+    }, options.organizationId),
     descriptor({
       id: "odoo.hr.employees.read",
       description: "Read active Odoo employees in the governed opays_hq tenant.",
@@ -481,7 +481,7 @@ function createOdooDescriptors(
       sideEffects: [],
       emits: [],
       verification,
-    }),
+    }, options.organizationId),
     descriptor({
       id: "odoo.crm.leads.read",
       description: "Search and read Odoo CRM leads and opportunities in the governed opays_hq tenant.",
@@ -498,7 +498,7 @@ function createOdooDescriptors(
       sideEffects: [],
       emits: [],
       verification,
-    }),
+    }, options.organizationId),
     descriptor({
       id: "odoo.sales.orders.read",
       description: "Search and read Odoo sales quotations and orders in the governed opays_hq tenant.",
@@ -515,7 +515,7 @@ function createOdooDescriptors(
       sideEffects: [],
       emits: [],
       verification,
-    }),
+    }, options.organizationId),
   ].map((item) => ({ ...item, source: "services/odoo-mcp" }));
 }
 
@@ -525,11 +525,12 @@ function descriptor(
     readonly aliases: readonly string[];
     readonly verification: CapabilityDescriptor["verification"];
   },
+  organizationId: string,
 ): Omit<CapabilityDescriptor, "source"> {
   return {
     ...definition,
     availability: "available",
-    tenantScope: { organizationIds: [OIP_ORGANIZATION_ID] },
+    tenantScope: { organizationIds: [organizationId] },
   };
 }
 
@@ -539,10 +540,11 @@ function googleDescriptor(
     readonly aliases: readonly string[];
     readonly verification: CapabilityDescriptor["verification"];
   },
+  organizationId: string,
   configured: boolean,
   setupProcedure: CapabilityProcedure,
 ): Omit<CapabilityDescriptor, "source"> {
-  const base = descriptor(definition);
+  const base = descriptor(definition, organizationId);
   return {
     ...base,
     availability: configured ? "available" : "needs_setup",
