@@ -850,13 +850,39 @@ async function searchRead(
   fields: readonly string[],
   limit: number,
 ): Promise<readonly JsonObject[]> {
+  // Robustness: only request fields that actually exist on this Odoo instance.
+  // Prevents KeyError-style rejections when the installed schema drifts.
+  const resolvedFields = await resolveKnownFields(client, model, fields);
   const payload = await client.executeKw(model, "search_read", [domain], {
-    fields: fields as unknown as JsonValue,
+    fields: resolvedFields as unknown as JsonValue,
     limit,
     order: "id asc",
   });
   if (!Array.isArray(payload)) throw new OdooJsonRpcError("Odoo search_read returned an invalid result.", "invalid_response");
   return payload.map(toJsonObject);
+}
+
+const knownFieldsCache = new Map<string, Set<string>>();
+
+async function resolveKnownFields(
+  client: OdooExecutor,
+  model: string,
+  wanted: readonly string[],
+): Promise<string[]> {
+  try {
+    let known = knownFieldsCache.get(model);
+    if (!known) {
+      const schema = await client.executeKw(model, "fields_get", [], { attributes: ["type"] as unknown as JsonValue });
+      known = new Set(Object.keys(schema as Record<string, unknown>));
+      if (known.size > 0) knownFieldsCache.set(model, known);
+    }
+    if (known.size === 0) return [...wanted];
+    const safe = wanted.filter((f) => f === "id" || known!.has(f));
+    return safe.length > 0 ? safe : ["id"];
+  } catch {
+    // Schema introspection is best-effort: never block reads because of it.
+    return [...wanted];
+  }
 }
 
 function baseData(
